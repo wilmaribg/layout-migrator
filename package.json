@@ -1,15 +1,19 @@
 {
-    "name": "@design-studio/layout-migrator",
+    "name": "layout-migrator",
     "version": "0.1.0",
     "private": true,
     "type": "module",
+    "bin": {
+        "layout-migrator": "./dist/index.js"
+    },
+    "main": "./dist/index.js",
     "engines": {
         "node": ">=20.0.0"
     },
     "scripts": {
         "start": "tsx src/index.ts",
         "migrate": "tsx src/index.ts migrate",
-        "build": "tsc",
+        "build": "tsup",
         "dev": "tsx watch src/index.ts",
         "typecheck": "tsc --noEmit",
         "test": "vitest run",
@@ -23,6 +27,7 @@
     },
     "devDependencies": {
         "@types/node": "^20.11.0",
+        "tsup": "^8.5.1",
         "tsx": "^4.7.0",
         "typescript": "^5.3.3",
         "vitest": "^1.2.2"
