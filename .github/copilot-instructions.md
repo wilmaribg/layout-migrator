@@ -4,6 +4,18 @@ Este documento describe cómo ejecutar una **migración de prueba** para transfe
 
 ---
 
+## Inicio Rápido (Zero Install)
+
+```bash
+git clone https://github.com/wilmaribg/layout-migrator.git
+cd layout-migrator
+node dist/index.js
+```
+
+No requiere `npm install` ni `pnpm install`. El CLI ya está bundleado.
+
+---
+
 ## Resumen del Proyecto
 
 El **Layout Migrator** es una herramienta CLI que:
@@ -44,7 +56,7 @@ ls -la .*.env
 ### Método 1: Interactivo (Recomendado para pruebas)
 
 ```bash
-pnpm run start
+node dist/index.js
 ```
 
 Luego seguir los prompts:
@@ -58,13 +70,13 @@ Luego seguir los prompts:
 ### Método 2: Comando Directo
 
 ```bash
-pnpm run start transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
+node dist/index.js transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
 ```
 
 **Ejemplo:**
 
 ```bash
-pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout
+node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout
 ```
 
 ### Método 3: Dry Run (Solo Verificar)
@@ -72,23 +84,23 @@ pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layou
 Para probar sin crear nada en destino:
 
 ```bash
-pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run
+node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run
 ```
 
 ---
 
 ## Parámetros Disponibles
 
-| Parámetro         | Descripción            | Ejemplo                    |
-| ----------------- | ---------------------- | -------------------------- |
-| `--from`          | Cuenta origen          | `--from cuenta-origen`     |
-| `--to`            | Cuenta destino         | `--to cuenta-destino`      |
-| `--id`            | Código de la plantilla | `--id main-layout`         |
-| `--dry-run`       | Solo validar, no subir | `--dry-run`                |
-| `--save-json`     | Guardar JSON local     | `--save-json`              |
-| `--name`          | Nombre personalizado   | `--name "Mi plantilla"`    |
-| `--verbose`       | Mostrar detalles       | `--verbose`                |
-| `--no-sync-fonts` | No sincronizar fuentes | `--no-sync-fonts`          |
+| Parámetro         | Descripción            | Ejemplo                 |
+| ----------------- | ---------------------- | ----------------------- |
+| `--from`          | Cuenta origen          | `--from cuenta-origen`  |
+| `--to`            | Cuenta destino         | `--to cuenta-destino`   |
+| `--id`            | Código de la plantilla | `--id main-layout`      |
+| `--dry-run`       | Solo validar, no subir | `--dry-run`             |
+| `--save-json`     | Guardar JSON local     | `--save-json`           |
+| `--name`          | Nombre personalizado   | `--name "Mi plantilla"` |
+| `--verbose`       | Mostrar detalles       | `--verbose`             |
+| `--no-sync-fonts` | No sincronizar fuentes | `--no-sync-fonts`       |
 
 ---
 
@@ -97,7 +109,7 @@ pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layou
 ### Transferir con todas las opciones
 
 ```bash
-pnpm run start transfer \
+node dist/index.js transfer \
   --from cuenta-origen \
   --to cuenta-destino \
   --id main-layout \
@@ -109,13 +121,13 @@ pnpm run start transfer \
 ### Verificar antes de ejecutar
 
 ```bash
-pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run --verbose
+node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run --verbose
 ```
 
 ### Guardar JSON sin subir
 
 ```bash
-pnpm run start migrate --domain cuenta-origen --id main-layout --json-only
+node dist/index.js migrate --domain cuenta-origen --id main-layout --json-only
 ```
 
 ---
@@ -163,28 +175,19 @@ El `contentTemplateCode` no existe en la cuenta origen.
 
 ```
 .
+├── dist/
+│   └── index.js             # CLI bundleado (listo para usar)
 ├── .{dominio}.env           # Config por cuenta (crear uno por cada cuenta)
 ├── .domain.env.example      # Plantilla de ejemplo
-├── src/
-│   ├── index.ts             # CLI principal
-│   ├── cli/
-│   │   └── interactive.ts   # Modo interactivo
-│   ├── client/
-│   │   └── prolibuClient.ts # Cliente API Prolibu
-│   ├── config/
-│   │   └── envLoader.ts     # Carga archivos .env
-│   ├── pipeline/
-│   │   └── migrationPipeline.ts # Orquestador
-│   └── transformers/        # Transformadores de nodos
-└── package.json
+└── src/                     # Código fuente (solo para desarrollo)
 ```
 
 ---
 
 ## Notas para el Agente
 
-1. **Directorio de trabajo**: Ya estás en el directorio correcto del layoutMigrator
-2. **Package manager**: Usar `pnpm` (no npm ni yarn)
+1. **Zero install**: Solo necesita Node.js 20+, no requiere npm/pnpm install
+2. **Comando base**: Siempre usar `node dist/index.js` para ejecutar
 3. **Verificar archivos .env**: Los tokens son sensibles, no mostrarlos
 4. **Dry-run primero**: Siempre sugerir `--dry-run` para pruebas iniciales
 5. **Logs**: El comando imprime progreso en tiempo real
