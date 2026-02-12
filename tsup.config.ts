@@ -6,17 +6,17 @@ export default defineConfig({
   target: 'node20',
   outDir: 'dist',
   clean: true,
-  dts: false,
-  sourcemap: false,
-  minify: false,
   splitting: false,
-  treeshake: true,
-  shims: true,
+  sourcemap: false,
+  dts: false,
+  // Bundle all dependencies including workspace packages
+  noExternal: ['@design-studio/schema'],
+  // Mark node built-ins as external
+  external: [],
   banner: {
     js: '#!/usr/bin/env node',
   },
-  noExternal: ['@design-studio/schema'],
   esbuildOptions(options) {
-    options.charset = 'utf8';
+    options.platform = 'node';
   },
 });
