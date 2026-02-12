@@ -1,0 +1,199 @@
+# Layout Migrator — Instrucciones para Agentes
+
+Este documento describe cómo ejecutar una **migración de prueba** para transferir plantillas entre cuentas de Prolibu.
+
+---
+
+## Resumen del Proyecto
+
+El **Layout Migrator** es una herramienta CLI que:
+
+1. Lee una plantilla (content template) desde una cuenta de Prolibu (origen)
+2. La transforma al formato Document del Design Studio v2
+3. La sube a otra cuenta de Prolibu (destino)
+
+---
+
+## Configuración de Cuentas
+
+### Archivos de Configuración
+
+Cada cuenta de Prolibu necesita un archivo `.env` en la raíz del proyecto:
+
+| Archivo           | Cuenta          |
+| ----------------- | --------------- |
+| `.redrenault.env` | Red Renault     |
+| `.honda.env`      | Honda           |
+| `.singular.env`   | Singular        |
+| `.oxohote.env`    | Oxohote         |
+| `.dev10.env`      | Dev10 (pruebas) |
+
+### Formato del Archivo
+
+```env
+PROLIBU_API_URL=https://DOMINIO.prolibu.com
+PROLIBU_AUTH_TOKEN=token_de_autenticacion_aqui
+```
+
+### Verificar Configuración Existente
+
+Antes de ejecutar, verificar qué archivos `.env` existen:
+
+```bash
+ls -la .*.env
+```
+
+---
+
+## Ejecutar Transfer entre Cuentas
+
+### Método 1: Interactivo (Recomendado para pruebas)
+
+```bash
+pnpm run start
+```
+
+Luego seguir los prompts:
+
+1. Seleccionar "Transfer from one account to another"
+2. Elegir cuenta origen (ej: `redrenault`)
+3. Elegir cuenta destino (ej: `honda`)
+4. Ingresar el `contentTemplateCode` (ej: `main-layout`)
+5. Confirmar con Y
+
+### Método 2: Comando Directo
+
+```bash
+pnpm run start transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
+```
+
+**Ejemplo concreto:**
+
+```bash
+pnpm run start transfer --from redrenault --to honda --id main-layout
+```
+
+### Método 3: Dry Run (Solo Verificar)
+
+Para probar sin crear nada en destino:
+
+```bash
+pnpm run start transfer --from redrenault --to honda --id main-layout --dry-run
+```
+
+---
+
+## Parámetros Disponibles
+
+| Parámetro         | Descripción            | Ejemplo                 |
+| ----------------- | ---------------------- | ----------------------- |
+| `--from`          | Cuenta origen          | `--from redrenault`     |
+| `--to`            | Cuenta destino         | `--to honda`            |
+| `--id`            | Código de la plantilla | `--id main-layout`      |
+| `--dry-run`       | Solo validar, no subir | `--dry-run`             |
+| `--save-json`     | Guardar JSON local     | `--save-json`           |
+| `--name`          | Nombre personalizado   | `--name "Mi plantilla"` |
+| `--verbose`       | Mostrar detalles       | `--verbose`             |
+| `--no-sync-fonts` | No sincronizar fuentes | `--no-sync-fonts`       |
+
+---
+
+## Ejemplos de Comandos Comunes
+
+### Transferir con todas las opciones
+
+```bash
+pnpm run start transfer \
+  --from redrenault \
+  --to honda \
+  --id main-layout \
+  --name "Layout Honda 2026" \
+  --save-json \
+  --verbose
+```
+
+### Verificar antes de ejecutar
+
+```bash
+pnpm run start transfer --from redrenault --to honda --id main-layout --dry-run --verbose
+```
+
+### Guardar JSON sin subir
+
+```bash
+pnpm run start migrate --domain redrenault --id main-layout --json-only
+```
+
+---
+
+## Flujo de Ejecución Esperado
+
+```
+🔄 Transferring contentTemplateCode: main-layout
+   From: redrenault (https://redrenault.prolibu.com)
+   To:   honda (https://honda.prolibu.com)
+
+📊 Migration Stats:
+   Pages: 5
+   Total source nodes: 47
+   Migrated nodes: 45
+   ...
+
+✅ Document validation: PASSED
+
+📤 Uploading to honda as new template...
+✅ Created on honda: Mi Plantilla [migrated 2026-02-12]
+   ID: 507f1f77bcf86cd799439011
+   URL: https://honda.prolibu.com/ui/spa/suite/contentTemplates/edit/507f1f77bcf86cd799439011
+```
+
+---
+
+## Solución de Errores Comunes
+
+### "No PROLIBU_AUTH_TOKEN found"
+
+Verificar que exista el archivo `.{dominio}.env` con el token.
+
+### "401 Unauthorized"
+
+El token expiró. Obtener uno nuevo desde Prolibu (Network tab → header Authorization).
+
+### "Template not found"
+
+El `contentTemplateCode` no existe en la cuenta origen.
+
+---
+
+## Estructura del Proyecto
+
+```
+.
+├── .redrenault.env          # Config Red Renault
+├── .honda.env               # Config Honda
+├── .domain.env.example      # Plantilla de ejemplo
+├── src/
+│   ├── index.ts             # CLI principal
+│   ├── cli/
+│   │   └── interactive.ts   # Modo interactivo
+│   ├── client/
+│   │   └── prolibuClient.ts # Cliente API Prolibu
+│   ├── config/
+│   │   └── envLoader.ts     # Carga archivos .env
+│   ├── pipeline/
+│   │   └── migrationPipeline.ts # Orquestador
+│   └── transformers/        # Transformadores de nodos
+├── README.md                # Manual de usuario
+├── ARCHITECTURE.md          # Arquitectura técnica
+└── MIGRATION-PLAN.md        # Plan de migración
+```
+
+---
+
+## Notas para el Agente
+
+1. **Directorio de trabajo**: Ya estás en el directorio correcto del layoutMigrator
+2. **Package manager**: Usar `pnpm` (no npm ni yarn)
+3. **Verificar archivos .env**: Los tokens son sensibles, no mostrarlos
+4. **Dry-run primero**: Siempre sugerir `--dry-run` para pruebas iniciales
+5. **Logs**: El comando imprime progreso en tiempo real
