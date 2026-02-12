@@ -9,7 +9,7 @@ Este documento describe cómo ejecutar una **migración de prueba** para transfe
 ```bash
 git clone https://github.com/wilmaribg/layout-migrator.git
 cd layout-migrator
-node dist/index.js
+node dist/index.cjs
 ```
 
 No requiere `npm install` ni `pnpm install`. El CLI ya está bundleado.
@@ -56,7 +56,7 @@ ls -la .*.env
 ### Método 1: Interactivo (Recomendado para pruebas)
 
 ```bash
-node dist/index.js
+node dist/index.cjs
 ```
 
 Luego seguir los prompts:
@@ -70,13 +70,13 @@ Luego seguir los prompts:
 ### Método 2: Comando Directo
 
 ```bash
-node dist/index.js transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
+node dist/index.cjs transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
 ```
 
 **Ejemplo:**
 
 ```bash
-node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout
+node dist/index.cjs transfer --from cuenta-origen --to cuenta-destino --id main-layout
 ```
 
 ### Método 3: Dry Run (Solo Verificar)
@@ -84,7 +84,7 @@ node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-l
 Para probar sin crear nada en destino:
 
 ```bash
-node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run
+node dist/index.cjs transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run
 ```
 
 ---
@@ -109,7 +109,7 @@ node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-l
 ### Transferir con todas las opciones
 
 ```bash
-node dist/index.js transfer \
+node dist/index.cjs transfer \
   --from cuenta-origen \
   --to cuenta-destino \
   --id main-layout \
@@ -121,13 +121,13 @@ node dist/index.js transfer \
 ### Verificar antes de ejecutar
 
 ```bash
-node dist/index.js transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run --verbose
+node dist/index.cjs transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run --verbose
 ```
 
 ### Guardar JSON sin subir
 
 ```bash
-node dist/index.js migrate --domain cuenta-origen --id main-layout --json-only
+node dist/index.cjs migrate --domain cuenta-origen --id main-layout --json-only
 ```
 
 ---
@@ -176,7 +176,7 @@ El `contentTemplateCode` no existe en la cuenta origen.
 ```
 .
 ├── dist/
-│   └── index.js             # CLI bundleado (listo para usar)
+│   └── index.cjs             # CLI bundleado (listo para usar)
 ├── .{dominio}.env           # Config por cuenta (crear uno por cada cuenta)
 ├── .domain.env.example      # Plantilla de ejemplo
 └── src/                     # Código fuente (solo para desarrollo)
@@ -187,7 +187,7 @@ El `contentTemplateCode` no existe en la cuenta origen.
 ## Notas para el Agente
 
 1. **Zero install**: Solo necesita Node.js 20+, no requiere npm/pnpm install
-2. **Comando base**: Siempre usar `node dist/index.js` para ejecutar
+2. **Comando base**: Siempre usar `node dist/index.cjs` para ejecutar
 3. **Verificar archivos .env**: Los tokens son sensibles, no mostrarlos
 4. **Dry-run primero**: Siempre sugerir `--dry-run` para pruebas iniciales
 5. **Logs**: El comando imprime progreso en tiempo real
