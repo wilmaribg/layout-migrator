@@ -18,15 +18,9 @@ El **Layout Migrator** es una herramienta CLI que:
 
 ### Archivos de Configuración
 
-Cada cuenta de Prolibu necesita un archivo `.env` en la raíz del proyecto:
+Cada cuenta de Prolibu necesita un archivo `.{dominio}.env` en la raíz del proyecto.
 
-| Archivo           | Cuenta          |
-| ----------------- | --------------- |
-| `.redrenault.env` | Red Renault     |
-| `.honda.env`      | Honda           |
-| `.singular.env`   | Singular        |
-| `.oxohote.env`    | Oxohote         |
-| `.dev10.env`      | Dev10 (pruebas) |
+**Ejemplo:** Para una cuenta llamada `micuenta`, crear el archivo `.micuenta.env`
 
 ### Formato del Archivo
 
@@ -56,8 +50,8 @@ pnpm run start
 Luego seguir los prompts:
 
 1. Seleccionar "Transfer from one account to another"
-2. Elegir cuenta origen (ej: `redrenault`)
-3. Elegir cuenta destino (ej: `honda`)
+2. Elegir cuenta origen
+3. Elegir cuenta destino
 4. Ingresar el `contentTemplateCode` (ej: `main-layout`)
 5. Confirmar con Y
 
@@ -67,10 +61,10 @@ Luego seguir los prompts:
 pnpm run start transfer --from ORIGEN --to DESTINO --id CODIGO_PLANTILLA
 ```
 
-**Ejemplo concreto:**
+**Ejemplo:**
 
 ```bash
-pnpm run start transfer --from redrenault --to honda --id main-layout
+pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout
 ```
 
 ### Método 3: Dry Run (Solo Verificar)
@@ -78,23 +72,23 @@ pnpm run start transfer --from redrenault --to honda --id main-layout
 Para probar sin crear nada en destino:
 
 ```bash
-pnpm run start transfer --from redrenault --to honda --id main-layout --dry-run
+pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run
 ```
 
 ---
 
 ## Parámetros Disponibles
 
-| Parámetro         | Descripción            | Ejemplo                 |
-| ----------------- | ---------------------- | ----------------------- |
-| `--from`          | Cuenta origen          | `--from redrenault`     |
-| `--to`            | Cuenta destino         | `--to honda`            |
-| `--id`            | Código de la plantilla | `--id main-layout`      |
-| `--dry-run`       | Solo validar, no subir | `--dry-run`             |
-| `--save-json`     | Guardar JSON local     | `--save-json`           |
-| `--name`          | Nombre personalizado   | `--name "Mi plantilla"` |
-| `--verbose`       | Mostrar detalles       | `--verbose`             |
-| `--no-sync-fonts` | No sincronizar fuentes | `--no-sync-fonts`       |
+| Parámetro         | Descripción            | Ejemplo                    |
+| ----------------- | ---------------------- | -------------------------- |
+| `--from`          | Cuenta origen          | `--from cuenta-origen`     |
+| `--to`            | Cuenta destino         | `--to cuenta-destino`      |
+| `--id`            | Código de la plantilla | `--id main-layout`         |
+| `--dry-run`       | Solo validar, no subir | `--dry-run`                |
+| `--save-json`     | Guardar JSON local     | `--save-json`              |
+| `--name`          | Nombre personalizado   | `--name "Mi plantilla"`    |
+| `--verbose`       | Mostrar detalles       | `--verbose`                |
+| `--no-sync-fonts` | No sincronizar fuentes | `--no-sync-fonts`          |
 
 ---
 
@@ -104,10 +98,10 @@ pnpm run start transfer --from redrenault --to honda --id main-layout --dry-run
 
 ```bash
 pnpm run start transfer \
-  --from redrenault \
-  --to honda \
+  --from cuenta-origen \
+  --to cuenta-destino \
   --id main-layout \
-  --name "Layout Honda 2026" \
+  --name "Mi Layout Migrado" \
   --save-json \
   --verbose
 ```
@@ -115,13 +109,13 @@ pnpm run start transfer \
 ### Verificar antes de ejecutar
 
 ```bash
-pnpm run start transfer --from redrenault --to honda --id main-layout --dry-run --verbose
+pnpm run start transfer --from cuenta-origen --to cuenta-destino --id main-layout --dry-run --verbose
 ```
 
 ### Guardar JSON sin subir
 
 ```bash
-pnpm run start migrate --domain redrenault --id main-layout --json-only
+pnpm run start migrate --domain cuenta-origen --id main-layout --json-only
 ```
 
 ---
@@ -130,8 +124,8 @@ pnpm run start migrate --domain redrenault --id main-layout --json-only
 
 ```
 🔄 Transferring contentTemplateCode: main-layout
-   From: redrenault (https://redrenault.prolibu.com)
-   To:   honda (https://honda.prolibu.com)
+   From: cuenta-origen (https://cuenta-origen.prolibu.com)
+   To:   cuenta-destino (https://cuenta-destino.prolibu.com)
 
 📊 Migration Stats:
    Pages: 5
@@ -141,10 +135,10 @@ pnpm run start migrate --domain redrenault --id main-layout --json-only
 
 ✅ Document validation: PASSED
 
-📤 Uploading to honda as new template...
-✅ Created on honda: Mi Plantilla [migrated 2026-02-12]
+📤 Uploading to cuenta-destino as new template...
+✅ Created on cuenta-destino: Mi Plantilla [migrated YYYY-MM-DD]
    ID: 507f1f77bcf86cd799439011
-   URL: https://honda.prolibu.com/ui/spa/suite/contentTemplates/edit/507f1f77bcf86cd799439011
+   URL: https://cuenta-destino.prolibu.com/ui/spa/suite/contentTemplates/edit/507f1f77bcf86cd799439011
 ```
 
 ---
@@ -169,8 +163,7 @@ El `contentTemplateCode` no existe en la cuenta origen.
 
 ```
 .
-├── .redrenault.env          # Config Red Renault
-├── .honda.env               # Config Honda
+├── .{dominio}.env           # Config por cuenta (crear uno por cada cuenta)
 ├── .domain.env.example      # Plantilla de ejemplo
 ├── src/
 │   ├── index.ts             # CLI principal
@@ -183,9 +176,7 @@ El `contentTemplateCode` no existe en la cuenta origen.
 │   ├── pipeline/
 │   │   └── migrationPipeline.ts # Orquestador
 │   └── transformers/        # Transformadores de nodos
-├── README.md                # Manual de usuario
-├── ARCHITECTURE.md          # Arquitectura técnica
-└── MIGRATION-PLAN.md        # Plan de migración
+└── package.json
 ```
 
 ---
