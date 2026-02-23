@@ -5,6 +5,11 @@
  * This parser extracts numeric values, background info, and border info.
  */
 
+export interface ParentDimensions {
+  width: number;
+  height: number;
+}
+
 export interface ParsedStyles {
   x: number;
   y: number;
@@ -24,6 +29,7 @@ export interface ParsedStyles {
   lineHeight?: number;
   minHeight?: number;
   heightAuto: boolean;
+  widthAuto: boolean;
 }
 
 export interface ParsedBorder {
@@ -34,8 +40,13 @@ export interface ParsedBorder {
 
 /**
  * Parse a Prolibu node's styles object into structured values.
+ * @param styles The styles object from a Prolibu node
+ * @param parentDimensions Optional parent dimensions for percentage calculations
  */
-export function parseNodeStyles(styles: Record<string, string | number> | undefined): ParsedStyles {
+export function parseNodeStyles(
+  styles: Record<string, string | number> | undefined,
+  parentDimensions?: ParentDimensions
+): ParsedStyles {
   if (!styles) {
     return {
       x: 0,
@@ -46,6 +57,7 @@ export function parseNodeStyles(styles: Record<string, string | number> | undefi
       visible: true,
       zIndex: 0,
       heightAuto: false,
+      widthAuto: false,
     };
   }
 
@@ -55,16 +67,31 @@ export function parseNodeStyles(styles: Record<string, string | number> | undefi
     s[k] = String(v);
   }
 
+  // Detect auto dimensions
+  const widthAuto = s.width === 'auto' || !s.width;
+  const heightAuto = s.height === 'auto' || !s.height;
+
+  // For auto width, use 85% of parent width as the standard width
+  const x = parsePx(s.left) ?? 0;
+  let width: number;
+  if (widthAuto) {
+    // Use 85% of parent width, or 400 as reasonable default without parent
+    width = parentDimensions ? Math.round(parentDimensions.width * 0.85) : 400;
+  } else {
+    width = parseDimension(s.width, parentDimensions?.width) ?? 100;
+  }
+
   const result: ParsedStyles = {
-    x: parsePx(s.left) ?? 0,
+    x,
     y: parsePx(s.top) ?? 0,
-    width: parsePx(s.width) ?? 100,
-    height: parsePx(s.height) ?? 100,
+    width,
+    height: parseDimension(s.height, parentDimensions?.height) ?? 100,
     opacity:
       s.opacity !== undefined ? (isNaN(parseFloat(s.opacity)) ? 1 : parseFloat(s.opacity)) : 1,
     visible: s.display !== 'none',
     zIndex: s.zIndex ? (isNaN(parseInt(s.zIndex, 10)) ? 0 : parseInt(s.zIndex, 10)) : 0,
-    heightAuto: s.height === 'auto',
+    heightAuto,
+    widthAuto,
   };
 
   // Background color
@@ -127,6 +154,41 @@ export function parseNodeStyles(styles: Record<string, string | number> | undefi
  */
 export function parsePx(value: string | undefined): number | null {
   if (!value || value === 'auto' || value === 'none') return null;
+  const num = parseFloat(value);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Parse a CSS dimension value that can be in px or percentage.
+ * For percentages, calculates the actual pixel value based on parent dimension.
+ *
+ * @param value The CSS value (e.g., "90%", "100px", "auto")
+ * @param parentDimension The parent dimension in pixels for percentage calculations
+ * @returns The calculated pixel value, or null for "auto"/"none"
+ *
+ * Examples:
+ *   parseDimension("90%", 792) → 712.8
+ *   parseDimension("100px", 792) → 100
+ *   parseDimension("auto", 792) → null
+ */
+export function parseDimension(value: string | undefined, parentDimension?: number): number | null {
+  if (!value || value === 'auto' || value === 'none') return null;
+
+  // Check if it's a percentage
+  if (value.endsWith('%')) {
+    const percent = parseFloat(value);
+    if (isNaN(percent)) return null;
+
+    // If no parent dimension provided, fallback to treating percentage as raw number
+    // This maintains backward compatibility but may produce suboptimal results
+    if (parentDimension === undefined) {
+      return percent; // Fallback: treat "90%" as 90
+    }
+
+    return Math.round((percent / 100) * parentDimension);
+  }
+
+  // Otherwise parse as px value
   const num = parseFloat(value);
   return isNaN(num) ? null : num;
 }

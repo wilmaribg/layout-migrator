@@ -187,6 +187,13 @@ export function migrateFromLayout(
 
     // Transform child nodes of this frame
     const childNodes = frame.children ?? [];
+
+    // Parent dimensions for percentage calculations
+    const parentDimensions = {
+      width: rootFrame.width,
+      height: rootFrame.height,
+    };
+
     for (const childNode of childNodes) {
       // Skip localLayoutContent (absorbed by pageTransformer)
       if (childNode.type === 'localLayoutContent') {
@@ -195,7 +202,7 @@ export function migrateFromLayout(
         continue;
       }
 
-      const transformedNodes = routeNode(childNode, rootFrame.id, ctx);
+      const transformedNodes = routeNode(childNode, rootFrame.id, ctx, parentDimensions);
 
       for (const tNode of transformedNodes) {
         nodes[tNode.id] = tNode;

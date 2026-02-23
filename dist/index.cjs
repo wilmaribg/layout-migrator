@@ -3386,6 +3386,602 @@ function generateId() {
   });
 }
 
+// ../../packages/schema/dist/contentPresets.js
+var contentPresets = {
+  cover: {
+    name: "Cover",
+    width: 792,
+    height: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 0, g: 0, b: 0, a: 1 },
+    pageType: "cover",
+    children: [
+      {
+        type: "TEXT",
+        characters: "{{ proposal.title }}",
+        fontSize: 36,
+        fontWeight: 700,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        x: 120,
+        y: 200,
+        width: 450,
+        height: 60
+      },
+      {
+        type: "TEXT",
+        characters: "Att: {{ contact.fullName }}",
+        fontSize: 16,
+        fontWeight: 500,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        x: 120,
+        y: 340,
+        width: 250,
+        height: 25
+      },
+      {
+        type: "TEXT",
+        characters: "{{ contact.companyName }}",
+        fontSize: 14,
+        fontWeight: 400,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 200, g: 200, b: 200, a: 1 }, opacity: 1 }],
+        x: 120,
+        y: 370,
+        width: 250,
+        height: 20
+      }
+    ]
+  },
+  "letter-of-intention": {
+    name: "Letter of Intention",
+    width: 792,
+    height: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    children: [
+      {
+        type: "COMPONENT",
+        pluginId: "com-proposal-header",
+        componentName: "Proposal Header",
+        props: {
+          hideStage: false,
+          hideProposalNo: false,
+          hideCreatedDate: false,
+          hideUpdatedDate: false,
+          hideOfferValidThrough: false
+        },
+        x: 400,
+        y: 40,
+        width: 350,
+        height: 95
+      },
+      {
+        type: "TEXT",
+        content: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                htmlContent: "<p>Dear {{ contact.fullName }},</p><p></p><p>Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.</p>"
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Dear {{ contact.fullName }},\n\nThank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs."
+                }
+              ]
+            }
+          ]
+        },
+        tiptapState: '{"type":"doc","content":[{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null},"content":[{"type":"text","text":"Dear {{ contact.fullName }},"}]},{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null}},{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null},"content":[{"type":"text","text":"Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs."}]}]}',
+        htmlContent: "<p>Dear {{ contact.fullName }},</p><p></p><p>Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.</p>",
+        characters: "Dear {{ contact.fullName }},\n\nThank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.",
+        fontSize: 14,
+        fontWeight: 400,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 80,
+        y: 175,
+        width: 630,
+        height: 120
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-agent",
+        componentName: "Agent Card",
+        props: {
+          hideAvatar: false,
+          hideFullName: false,
+          hideJobTitle: false,
+          hideEmail: false,
+          hideMobile: false
+        },
+        x: 80,
+        y: 365,
+        width: 498,
+        height: 176
+      }
+    ]
+  },
+  "quote-page": {
+    name: "Quote",
+    width: 612,
+    height: 792,
+    minHeight: 792,
+    orientation: "portrait",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "pricing",
+    autoGrow: true,
+    children: [
+      {
+        type: "COMPONENT",
+        pluginId: "com-quote",
+        componentName: "Price Quote",
+        props: {
+          title: "Price Summary.",
+          summary: "",
+          hideTitleAndDescription: false,
+          repeatHeaders: false,
+          showTitleAndDescription: true,
+          showDateExpanded: false,
+          showGroupExpanded: false,
+          showFamilyExpanded: false,
+          showLineItemExpanded: false,
+          showConsolidated: false,
+          showAditionalNotes: false,
+          hideSummaryOfDates: false,
+          hideSummaryOfGroups: false,
+          hideSummaryOfFamilies: false,
+          hideSummaryOfTotal: false,
+          showPaymentPlan: true,
+          columns: [
+            {
+              label: "Concept",
+              cell: "productName",
+              width: "110px",
+              minWidth: "110px",
+              visible: true
+            },
+            {
+              label: "Qty.",
+              cell: "quantity",
+              width: "25px",
+              minWidth: "25px",
+              visible: true
+            },
+            {
+              label: "U. Price",
+              cell: "netUnitPrice",
+              width: "55px",
+              minWidth: "55px",
+              visible: true
+            },
+            {
+              label: "Sub Total",
+              cell: "subTotal",
+              width: "55px",
+              minWidth: "55px",
+              visible: true
+            },
+            {
+              label: "Discount",
+              cell: "discountAmount",
+              width: "55px",
+              minWidth: "55px",
+              visible: true
+            },
+            {
+              label: "Taxes",
+              cell: "netTotalTaxAmount",
+              width: "55px",
+              minWidth: "55px",
+              visible: true
+            },
+            {
+              label: "Total",
+              cell: "total",
+              width: "75px",
+              minWidth: "75px",
+              visible: true
+            }
+          ],
+          paymentPlanColumns: [
+            {
+              label: "#",
+              cell: "number",
+              width: 60,
+              minWidth: 60,
+              visible: true,
+              align: "center"
+            },
+            {
+              label: "Title",
+              cell: "title",
+              width: 280,
+              minWidth: 200,
+              visible: true,
+              align: "left"
+            },
+            {
+              label: "Payment Date",
+              cell: "dueDate",
+              width: 120,
+              minWidth: 120,
+              visible: true,
+              align: "center"
+            },
+            { label: "Total", cell: "total", width: 100, visible: true, align: "right" }
+          ]
+        },
+        x: 32,
+        y: 32,
+        width: 548,
+        height: 728
+      }
+    ]
+  },
+  "payment-plan-page": {
+    name: "Payment Plan",
+    width: 612,
+    height: 792,
+    minHeight: 792,
+    orientation: "portrait",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "pricing",
+    autoGrow: true,
+    children: [
+      {
+        type: "COMPONENT",
+        pluginId: "com-payment-plan",
+        componentName: "Payment Plan",
+        props: {
+          titleTemplate: "Payment Plan",
+          showTitleAndDescription: true,
+          showPaymentsExpanded: false,
+          paymentPlanColumns: [
+            {
+              label: "#",
+              cell: "number",
+              width: 60,
+              minWidth: 60,
+              visible: true,
+              align: "center"
+            },
+            {
+              label: "Title",
+              cell: "title",
+              width: 280,
+              minWidth: 200,
+              visible: true,
+              align: "left"
+            },
+            {
+              label: "Payment Date",
+              cell: "dueDate",
+              width: 120,
+              minWidth: 120,
+              visible: true,
+              align: "center"
+            },
+            { label: "Total", cell: "total", width: 100, visible: true, align: "right" }
+          ]
+        },
+        x: 32,
+        y: 32,
+        width: 548,
+        height: 728
+      }
+    ]
+  },
+  "satisfaction-page": {
+    name: "Satisfaction Survey",
+    width: 792,
+    height: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    children: [
+      {
+        type: "TEXT",
+        characters: "How was your experience?",
+        fontSize: 24,
+        fontWeight: 700,
+        textAlign: "center",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 196,
+        y: 100,
+        width: 400,
+        height: 40
+      },
+      {
+        type: "TEXT",
+        characters: "We value your feedback. Please rate your experience with us.",
+        fontSize: 14,
+        fontWeight: 400,
+        textAlign: "center",
+        fills: [{ type: "solid", color: { r: 100, g: 100, b: 100, a: 1 }, opacity: 1 }],
+        x: 146,
+        y: 150,
+        width: 500,
+        height: 30
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-rate",
+        componentName: "Rating",
+        props: {
+          aparience: { label: "Rating Stars", value: "Rating Stars" },
+          fill: "#FFFFFF",
+          textColor: "#000000",
+          calification: 0
+        },
+        x: 280,
+        y: 250,
+        width: 232,
+        height: 80
+      }
+    ]
+  },
+  "accordion-page": {
+    name: "FAQ / Accordion",
+    width: 792,
+    height: 612,
+    minHeight: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    autoGrow: true,
+    children: [
+      {
+        type: "TEXT",
+        characters: "Frequently Asked Questions",
+        fontSize: 24,
+        fontWeight: 700,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 40,
+        y: 40,
+        width: 400,
+        height: 40
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-accordion",
+        componentName: "FAQ Accordion",
+        props: {
+          rows: [
+            {
+              title: "What is included?",
+              description: "This section describes what is included in the package.",
+              expanded: true,
+              blockExpanded: false
+            },
+            {
+              title: "Terms & Conditions",
+              description: "Important terms and conditions for this proposal.",
+              expanded: false,
+              blockExpanded: false
+            }
+          ],
+          startExpanded: false
+        },
+        x: 40,
+        y: 100,
+        width: 712,
+        height: 400
+      }
+    ]
+  },
+  "attachments-page": {
+    name: "Attachments",
+    width: 792,
+    height: 612,
+    minHeight: 612,
+    orientation: "landscape",
+    autoGrow: true,
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    children: [
+      {
+        type: "RECTANGLE",
+        fills: [{ type: "solid", color: { r: 26, g: 26, b: 26, a: 1 }, opacity: 1 }],
+        cornerRadius: 0,
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 612
+      },
+      {
+        type: "TEXT",
+        characters: "Attachments",
+        fontSize: 20,
+        fontWeight: 700,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 60,
+        y: 52,
+        width: 300,
+        height: 30
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-attachment",
+        pluginProps: {
+          attachments: [
+            {
+              id: "1",
+              name: "Sample Document.pdf",
+              type: "document",
+              url: "#",
+              size: "2.5 MB"
+            },
+            {
+              id: "2",
+              name: "Project Image.png",
+              type: "image",
+              url: "#",
+              size: "1.2 MB"
+            }
+          ]
+        },
+        x: 60,
+        y: 100,
+        width: 692,
+        height: 400
+      }
+    ]
+  },
+  "agreement-signature-page": {
+    name: "Agreement Signature",
+    width: 792,
+    height: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    children: [
+      {
+        type: "IMAGE",
+        imageRef: "https://s3.amazonaws.com/public.prolibu.com/cdn/images/icons/i-ESign.svg",
+        x: 94,
+        y: 124,
+        width: 38,
+        height: 38
+      },
+      {
+        type: "TEXT",
+        characters: "Agreement Signature.",
+        fontSize: 32,
+        fontWeight: 700,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 148,
+        y: 128,
+        width: 381,
+        height: 50
+      },
+      {
+        type: "TEXT",
+        characters: "\u2014 {{{ contact.firstName }}}, this proposal can be approved instantly by adding your electronic signature.",
+        fontSize: 18,
+        fontWeight: 600,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 94,
+        y: 192,
+        width: 612,
+        height: 57
+      },
+      {
+        type: "TEXT",
+        characters: "Before approving this proposal, you will have the opportunity to carefully review all details of the contract. By adding your electronic signature, you not only sign the necessary documents, but also formally confirm your full acceptance of this commercial agreement.",
+        fontSize: 13,
+        fontWeight: 400,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 94,
+        y: 264,
+        width: 606,
+        height: 100
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-agreement-signature",
+        componentName: "Agreement Signature",
+        props: {},
+        x: 94,
+        y: 384,
+        width: 205,
+        height: 70
+      }
+    ]
+  },
+  "custom-content": {
+    name: "Custom Content",
+    width: 792,
+    height: 80,
+    orientation: "landscape",
+    backgroundColor: { r: 26, g: 26, b: 26, a: 1 },
+    pageType: "marker",
+    children: [
+      {
+        type: "TEXT",
+        characters: "{{{customContent}}}",
+        fontSize: 18,
+        fontWeight: 400,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        x: 0,
+        y: 0,
+        width: 792,
+        height: 80
+      }
+    ]
+  },
+  "quick-proposal-approval-page": {
+    name: "Quick Approval",
+    width: 792,
+    height: 612,
+    orientation: "landscape",
+    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
+    pageType: "content",
+    children: [
+      {
+        type: "TEXT",
+        characters: "Proposal Approval",
+        fontSize: 24,
+        fontWeight: 700,
+        textAlign: "center",
+        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        x: 196,
+        y: 40,
+        width: 400,
+        height: 40
+      },
+      {
+        type: "COMPONENT",
+        pluginId: "com-quick-proposal-approval",
+        componentName: "Quick Proposal Approval",
+        props: {
+          title: "Proposal Approval.",
+          descriptionText: null,
+          descriptionApproved: null,
+          descriptionDenied: null
+        },
+        x: 40,
+        y: 100,
+        width: 712,
+        height: 472
+      }
+    ]
+  },
+  "snippets-placeholder": {
+    name: "Product Snippets",
+    width: 792,
+    height: 80,
+    orientation: "landscape",
+    backgroundColor: { r: 26, g: 26, b: 26, a: 1 },
+    pageType: "marker",
+    children: [
+      {
+        type: "TEXT",
+        characters: "{{{productSnippets}}}",
+        fontSize: 18,
+        fontWeight: 400,
+        textAlign: "left",
+        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        x: 0,
+        y: 0,
+        width: 792,
+        height: 80
+      }
+    ]
+  }
+};
+
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -7539,7 +8135,7 @@ function documentToPayload(doc, options = {}) {
     return base;
   });
   const googleFontsHtml = buildGoogleFontsLinkTags(doc.settings.typography.googleFonts ?? []);
-  return {
+  const payload = {
     contentTemplateName: name,
     templateType,
     pages,
@@ -7547,11 +8143,17 @@ function documentToPayload(doc, options = {}) {
     // No browser rendering available — empty is accepted by the API
     // Font configuration
     defaultFont: doc.settings.typography.defaultFontFamily || void 0,
+    // Embedded fonts - empty array (fonts are uploaded separately)
+    embeddedFonts: [],
     // NOTE: assets expects File document IDs, not the actual image data
     meta: {
       googleFonts: googleFontsHtml
     }
   };
+  if (options.contentTemplateCode) {
+    payload.contentTemplateCode = options.contentTemplateCode;
+  }
+  return payload;
 }
 async function createContentTemplate(doc, config, options = {}) {
   const payload = documentToPayload(doc, options);
@@ -7577,6 +8179,21 @@ async function createContentTemplate(doc, config, options = {}) {
     _id,
     contentTemplateName: json.contentTemplateName
   };
+}
+async function hideTemplate(templateId, config) {
+  const url = `${config.baseUrl}/v2/contenttemplate/${templateId}`;
+  await fetchWithRetry(
+    url,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: config.authToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ hidden: true })
+    },
+    `hiding template ${templateId}`
+  );
 }
 function buildGoogleFontsLinkTags(googleFonts) {
   if (googleFonts.length === 0) return "";
@@ -7636,6 +8253,99 @@ async function safeParseJson(response, context) {
 }
 function sleep(ms) {
   return new Promise((resolve4) => setTimeout(resolve4, ms));
+}
+async function fetchExistingTemplates(config, templateType) {
+  const allTemplates = [];
+  let page = 1;
+  const limit = 500;
+  while (true) {
+    const url = new URL("/v2/contenttemplate/", config.baseUrl);
+    url.searchParams.set(
+      "select",
+      "contentTemplateName contentTemplateCode templateType createdAt"
+    );
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("sort", "-createdAt");
+    if (templateType) {
+      url.searchParams.set("templateType", templateType);
+    }
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: "GET",
+        headers: {
+          Authorization: config.authToken,
+          "Content-Type": "application/json"
+        }
+      },
+      `listing templates page ${page}`
+    );
+    const json = await safeParseJson(response, `templates list page ${page}`);
+    const data = Array.isArray(json) ? json : json.data || [];
+    if (data.length === 0) break;
+    allTemplates.push(...data);
+    if (data.length < limit) break;
+    page++;
+  }
+  return allTemplates;
+}
+function buildTemplateCodeMap(templates) {
+  const map = /* @__PURE__ */ new Map();
+  for (const t of templates) {
+    if (t.contentTemplateCode) {
+      map.set(t.contentTemplateCode, t._id);
+    }
+  }
+  return map;
+}
+async function updateContentTemplate(templateId, doc, config, options = {}) {
+  const payload = documentToPayload(doc, options);
+  const url = `${config.baseUrl}/v2/contenttemplate/${templateId}`;
+  const response = await fetchWithRetry(
+    url,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: config.authToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    },
+    `updating template ${templateId}`
+  );
+  const json = await safeParseJson(response, "update response");
+  const _id = json._id ?? json.id ?? templateId;
+  return {
+    _id,
+    contentTemplateName: json.contentTemplateName
+  };
+}
+async function upsertContentTemplate(doc, config, existingMap, options = {}) {
+  const sourceCode = options.sourceCode ?? doc.name;
+  const migratedCode = `${sourceCode}-migrated`;
+  const existingId = existingMap.get(migratedCode);
+  const payloadOptions = {
+    name: options.name,
+    templateType: options.templateType,
+    contentTemplateCode: migratedCode,
+    fontIds: options.fontIds
+  };
+  if (existingId) {
+    const result = await updateContentTemplate(existingId, doc, config, payloadOptions);
+    return {
+      action: "updated",
+      _id: result._id,
+      contentTemplateName: result.contentTemplateName
+    };
+  } else {
+    const result = await createContentTemplate(doc, config, payloadOptions);
+    return {
+      action: "created",
+      _id: result._id,
+      contentTemplateName: result.contentTemplateName
+    };
+  }
 }
 
 // src/assets/fontResolver.ts
@@ -7720,35 +8430,62 @@ function inferWeight(name) {
 async function syncFonts(embeddedFonts, apiConfig) {
   const result = {
     fontMap: {},
+    fontIds: [],
     uploaded: [],
     skipped: [],
     failed: []
   };
+  console.log("\n\u{1F524} [FontSync] Starting font synchronization...");
+  console.log(`   Input: ${embeddedFonts.length} embedded fonts`);
   const uniqueFonts = extractFonts(embeddedFonts);
+  console.log(`   Unique fonts extracted: ${uniqueFonts.length}`);
   if (uniqueFonts.length === 0) {
+    console.log("   No fonts to process, skipping sync");
     return result;
   }
+  for (const font of uniqueFonts) {
+    console.log(`   \u2192 Font: "${font.baseName}" (code: "${font.fontCode}")`);
+  }
+  console.log("\n   Fetching existing fonts from v2...");
   const existingFonts = await fetchExistingFonts(apiConfig);
+  console.log(`   Found ${existingFonts.length} existing fonts in v2 account`);
   const existingByCode = new Map(existingFonts.map((f) => [f.fontCode, f]));
+  const existingByName = new Map(existingFonts.map((f) => [f.fontName, f]));
+  console.log("\n   Processing fonts...");
   for (const font of uniqueFonts) {
     const { baseName, fontCode, originalNames, url } = font;
-    if (existingByCode.has(fontCode)) {
+    const existingByCodeMatch = existingByCode.get(fontCode);
+    const existingByNameMatch = existingByName.get(baseName);
+    const existing = existingByCodeMatch || existingByNameMatch;
+    if (existing) {
+      const matchType = existingByCodeMatch ? "fontCode" : "fontName";
+      console.log(`   \u23ED\uFE0F  SKIP: "${baseName}" - already exists (matched by ${matchType})`);
+      console.log(`      Existing: _id="${existing._id}", fontCode="${existing.fontCode}", fontName="${existing.fontName}"`);
       result.skipped.push(baseName);
+      result.fontIds.push(existing._id);
       for (const oldName of originalNames) {
-        result.fontMap[oldName] = fontCode;
+        result.fontMap[oldName] = existing.fontCode;
       }
       continue;
     }
+    console.log(`   \u{1F4E5} DOWNLOAD: "${baseName}" from ${url.substring(0, 60)}...`);
     try {
       const file = await downloadFont(url, baseName);
+      console.log(`   \u{1F4E4} UPLOAD: "${baseName}" (fontCode: "${fontCode}", size: ${file.size} bytes)`);
       const uploaded = await uploadFont(file, baseName, fontCode, apiConfig);
+      console.log(`   \u2705 UPLOADED: "${baseName}" \u2192 _id="${uploaded._id}", fontCode="${uploaded.fontCode}"`);
       result.uploaded.push(baseName);
+      if (uploaded._id) {
+        result.fontIds.push(uploaded._id);
+      }
       for (const oldName of originalNames) {
         result.fontMap[oldName] = uploaded.fontCode;
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`   \u274C ERROR: "${baseName}" - ${errorMessage}`);
       if (isDuplicateError(errorMessage)) {
+        console.log(`      (Duplicate detected, treating as skipped)`);
         result.skipped.push(baseName);
         for (const oldName of originalNames) {
           result.fontMap[oldName] = fontCode;
@@ -7761,6 +8498,12 @@ async function syncFonts(embeddedFonts, apiConfig) {
       }
     }
   }
+  console.log("\n   \u{1F4CA} Font Sync Summary:");
+  console.log(`      Uploaded: ${result.uploaded.length} (${result.uploaded.join(", ") || "none"})`);
+  console.log(`      Skipped:  ${result.skipped.length} (${result.skipped.join(", ") || "none"})`);
+  console.log(`      Failed:   ${result.failed.length} (${result.failed.map((f) => f.name).join(", ") || "none"})`);
+  console.log(`      Font IDs: ${result.fontIds.length} total`);
+  console.log(`      Font Map: ${Object.keys(result.fontMap).length} mappings`);
   return result;
 }
 function extractFonts(embeddedFonts) {
@@ -7849,7 +8592,7 @@ async function uploadFont(file, fontName, fontCode, config) {
     throw new Error(errorData.error || `HTTP ${response.status}`);
   }
   const data = await response.json();
-  return { fontCode: data.fontCode || fontCode };
+  return { fontCode: data.fontCode || fontCode, _id: data._id };
 }
 function isDuplicateError(message) {
   const dupPatterns = [
@@ -7904,7 +8647,7 @@ function transformDocumentShell(layout, fonts) {
 }
 
 // src/converters/cssParser.ts
-function parseNodeStyles(styles) {
+function parseNodeStyles(styles, parentDimensions) {
   if (!styles) {
     return {
       x: 0,
@@ -7914,22 +8657,33 @@ function parseNodeStyles(styles) {
       opacity: 1,
       visible: true,
       zIndex: 0,
-      heightAuto: false
+      heightAuto: false,
+      widthAuto: false
     };
   }
   const s = {};
   for (const [k, v] of Object.entries(styles)) {
     s[k] = String(v);
   }
+  const widthAuto = s.width === "auto" || !s.width;
+  const heightAuto = s.height === "auto" || !s.height;
+  const x = parsePx(s.left) ?? 0;
+  let width;
+  if (widthAuto) {
+    width = parentDimensions ? Math.round(parentDimensions.width * 0.85) : 400;
+  } else {
+    width = parseDimension(s.width, parentDimensions?.width) ?? 100;
+  }
   const result = {
-    x: parsePx(s.left) ?? 0,
+    x,
     y: parsePx(s.top) ?? 0,
-    width: parsePx(s.width) ?? 100,
-    height: parsePx(s.height) ?? 100,
+    width,
+    height: parseDimension(s.height, parentDimensions?.height) ?? 100,
     opacity: s.opacity !== void 0 ? isNaN(parseFloat(s.opacity)) ? 1 : parseFloat(s.opacity) : 1,
     visible: s.display !== "none",
     zIndex: s.zIndex ? isNaN(parseInt(s.zIndex, 10)) ? 0 : parseInt(s.zIndex, 10) : 0,
-    heightAuto: s.height === "auto"
+    heightAuto,
+    widthAuto
   };
   if (s.backgroundColor) {
     result.backgroundColor = s.backgroundColor;
@@ -7971,6 +8725,19 @@ function parseNodeStyles(styles) {
 }
 function parsePx(value) {
   if (!value || value === "auto" || value === "none") return null;
+  const num = parseFloat(value);
+  return isNaN(num) ? null : num;
+}
+function parseDimension(value, parentDimension) {
+  if (!value || value === "auto" || value === "none") return null;
+  if (value.endsWith("%")) {
+    const percent = parseFloat(value);
+    if (isNaN(percent)) return null;
+    if (parentDimension === void 0) {
+      return percent;
+    }
+    return Math.round(percent / 100 * parentDimension);
+  }
   const num = parseFloat(value);
   return isNaN(num) ? null : num;
 }
@@ -8128,8 +8895,12 @@ function transformPage(frame, index, pageSize = PAGE_SIZES.fixed) {
   if (styles.backgroundImage) {
     backgroundImage = convertWildcards(styles.backgroundImage);
   }
-  const frameWidth = pageSize.width;
-  const frameHeight = isAutoGrow ? styles.minHeight ?? pageSize.height : pageSize.height;
+  const sourceWidth = styles.width;
+  const sourceHeight = styles.height;
+  const orientation = sourceWidth >= sourceHeight ? "landscape" : "portrait";
+  const effectivePageSize = orientation === "portrait" ? { width: pageSize.height, height: pageSize.width, preset: pageSize.preset } : pageSize;
+  const frameWidth = effectivePageSize.width;
+  const frameHeight = isAutoGrow ? styles.minHeight ?? effectivePageSize.height : effectivePageSize.height;
   const rootFrame = createFrameNode({
     id: rootId,
     name: frame.name || `Page ${index + 1}`,
@@ -8140,7 +8911,7 @@ function transformPage(frame, index, pageSize = PAGE_SIZES.fixed) {
     backgroundImage,
     backgroundSize: backgroundImage ? "cover" : void 0,
     autoGrow: isAutoGrow || void 0,
-    minHeight: isAutoGrow ? styles.minHeight ?? pageSize.height : void 0,
+    minHeight: isAutoGrow ? styles.minHeight ?? effectivePageSize.height : void 0,
     clipContent: true
   });
   const extraNodes = {};
@@ -8167,8 +8938,8 @@ function transformPage(frame, index, pageSize = PAGE_SIZES.fixed) {
     id: pageId,
     name: frame.name || `Page ${index + 1}`,
     rootId,
-    orientation: "landscape",
-    size: pageSize,
+    orientation,
+    size: effectivePageSize,
     types: isPlaceholder ? ["marker"] : [],
     isPlaceholder,
     ...placeholder && { placeholder }
@@ -8195,152 +8966,12 @@ function detectLayoutContentType(frame) {
 var V1_TO_V2_PRESET_MAP = {
   quotePage: "quote-page",
   quickProposalApprovalPage: "quick-proposal-approval-page",
-  accordionPage: "accordion-page"
+  accordionPage: "accordion-page",
+  agreementSignaturePage: "agreement-signature-page",
+  satisfactionRate: "satisfaction-page"
   // layoutProductSnippets is handled separately as placeholder
 };
 var KNOWN_PRESET_NAMES = new Set(Object.keys(V1_TO_V2_PRESET_MAP));
-var V2_PRESETS = {
-  "quote-page": {
-    name: "Quote",
-    width: 612,
-    height: 792,
-    orientation: "portrait",
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: "pricing",
-    autoGrow: true,
-    minHeight: 792,
-    component: {
-      pluginId: "com-quote",
-      componentName: "Price Quote",
-      defaultProps: {
-        title: "Price Summary.",
-        summary: "",
-        hideTitleAndDescription: false,
-        repeatHeaders: false,
-        showTitleAndDescription: true,
-        showDateExpanded: false,
-        showGroupExpanded: false,
-        showFamilyExpanded: false,
-        showLineItemExpanded: false,
-        showConsolidated: false,
-        showAditionalNotes: false,
-        hideSummaryOfDates: false,
-        hideSummaryOfGroups: false,
-        hideSummaryOfFamilies: false,
-        hideSummaryOfTotal: false,
-        showPaymentPlan: true,
-        columns: [
-          {
-            label: "Concept",
-            cell: "productName",
-            width: "110px",
-            minWidth: "110px",
-            visible: true
-          },
-          { label: "Qty.", cell: "quantity", width: "25px", minWidth: "25px", visible: true },
-          {
-            label: "U. Price",
-            cell: "netUnitPrice",
-            width: "55px",
-            minWidth: "55px",
-            visible: true
-          },
-          { label: "Sub Total", cell: "subTotal", width: "55px", minWidth: "55px", visible: true },
-          {
-            label: "Discount",
-            cell: "discountAmount",
-            width: "55px",
-            minWidth: "55px",
-            visible: true
-          },
-          {
-            label: "Taxes",
-            cell: "netTotalTaxAmount",
-            width: "55px",
-            minWidth: "55px",
-            visible: true
-          },
-          { label: "Total", cell: "total", width: "75px", minWidth: "75px", visible: true }
-        ],
-        paymentPlanColumns: [
-          { label: "#", cell: "number", width: 60, minWidth: 60, visible: true, align: "center" },
-          {
-            label: "Title",
-            cell: "title",
-            width: 280,
-            minWidth: 200,
-            visible: true,
-            align: "left"
-          },
-          {
-            label: "Payment Date",
-            cell: "dueDate",
-            width: 120,
-            minWidth: 120,
-            visible: true,
-            align: "center"
-          },
-          { label: "Total", cell: "total", width: 100, visible: true, align: "right" }
-        ]
-      },
-      x: 32,
-      y: 32,
-      width: 548,
-      height: 728
-    }
-  },
-  "quick-proposal-approval-page": {
-    name: "Quick Approval",
-    width: 792,
-    height: 612,
-    orientation: "landscape",
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: "content",
-    component: {
-      pluginId: "com-quick-proposal-approval",
-      componentName: "Quick Proposal Approval",
-      defaultProps: {
-        title: "Proposal Approval.",
-        descriptionText: null,
-        descriptionApproved: null,
-        descriptionDenied: null
-      },
-      x: 40,
-      y: 100,
-      width: 712,
-      height: 472
-    }
-  },
-  "accordion-page": {
-    name: "FAQ / Accordion",
-    width: 792,
-    height: 612,
-    orientation: "landscape",
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: "content",
-    autoGrow: true,
-    minHeight: 612,
-    component: {
-      pluginId: "com-accordion",
-      componentName: "Accordion",
-      defaultProps: {
-        rows: [
-          {
-            title: "Title",
-            description: "Description",
-            expanded: false,
-            blockExpanded: false
-          }
-        ],
-        startExpanded: false
-      },
-      x: 40,
-      y: 40,
-      width: 712,
-      height: 500
-    }
-  }
-};
 function detectPagePreset(frame) {
   const presetChild = frame.children?.find(
     (child) => child.type === "localGroup" && KNOWN_PRESET_NAMES.has(child.name)
@@ -8378,16 +9009,15 @@ function filterConfigProps(props) {
   return result;
 }
 function resolvePagePreset(v2PresetId, v1Props, _pageIndex, pageSize, ctx, v1Styles) {
-  const preset = V2_PRESETS[v2PresetId];
+  const preset = contentPresets[v2PresetId];
   if (!preset) {
     throw new Error(`Unknown V2 preset ID: ${v2PresetId}`);
   }
   const pageId = generateId();
   const rootId = generateId();
-  const componentId = generateId();
   const fills = [{ type: "solid", color: preset.backgroundColor, opacity: 1 }];
-  const frameWidth = preset.width || pageSize.width;
-  const frameHeight = preset.height || pageSize.height;
+  const frameWidth = preset.width;
+  const frameHeight = preset.height;
   const v1Height = v1Styles?.height;
   const v1MinHeight = v1Styles?.minHeight;
   const isAutoGrow = v1Height === "auto" || v1MinHeight !== void 0 || preset.autoGrow;
@@ -8403,55 +9033,126 @@ function resolvePagePreset(v2PresetId, v1Props, _pageIndex, pageSize, ctx, v1Sty
     autoGrow: isAutoGrow || void 0,
     minHeight: isAutoGrow ? minHeight ?? frameHeight : void 0
   });
-  const mergedProps = {
-    ...preset.component.defaultProps,
-    ...v1Props ?? {}
+  const allNodes = {
+    [rootId]: rootFrame
   };
-  const component = {
-    type: "COMPONENT",
-    id: componentId,
-    name: preset.component.componentName,
-    parentId: rootId,
-    children: [],
-    x: preset.component.x,
-    y: preset.component.y,
-    width: preset.component.width,
-    height: preset.component.height,
-    rotation: 0,
-    visible: true,
-    locked: false,
-    opacity: 1,
-    constraints: { horizontal: "left", vertical: "top" },
-    blendMode: "normal",
-    pluginData: {},
-    pluginId: preset.component.pluginId,
-    componentName: preset.component.componentName,
-    props: mergedProps,
-    pluginVersion: "1.0.0",
-    fallbackRender: "placeholder"
-  };
-  rootFrame.children = [componentId];
+  for (const childConfig of preset.children) {
+    const childId = generateId();
+    if (childConfig.type === "COMPONENT") {
+      const mergedProps = {
+        ...childConfig.props || childConfig.pluginProps || {},
+        ...v1Props ?? {}
+      };
+      const componentNode = {
+        type: "COMPONENT",
+        id: childId,
+        name: childConfig.componentName || "Component",
+        parentId: rootId,
+        children: [],
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        rotation: 0,
+        visible: true,
+        locked: false,
+        opacity: 1,
+        constraints: { horizontal: "left", vertical: "top" },
+        blendMode: "normal",
+        pluginData: {},
+        pluginId: childConfig.pluginId || "unknown",
+        componentName: childConfig.componentName || "Component",
+        props: mergedProps,
+        pluginVersion: "1.0.0",
+        fallbackRender: "placeholder"
+      };
+      allNodes[childId] = componentNode;
+      rootFrame.children.push(childId);
+      ctx.stats.componentNodes++;
+    } else if (childConfig.type === "TEXT") {
+      const textNode = createTextNode({
+        id: childId,
+        name: "Text",
+        parentId: rootId,
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        content: createRichTextContent(childConfig.characters || ""),
+        htmlContent: childConfig.htmlContent || "",
+        characters: childConfig.characters || "",
+        tiptapState: childConfig.tiptapState || null,
+        textAutoResize: "none"
+      });
+      if (childConfig.fontSize) textNode.fontSize = childConfig.fontSize;
+      if (childConfig.fontWeight) textNode.fontWeight = childConfig.fontWeight;
+      if (childConfig.textAlign) textNode.textAlign = childConfig.textAlign;
+      if (childConfig.fills) textNode.fills = childConfig.fills;
+      allNodes[childId] = textNode;
+      rootFrame.children.push(childId);
+      ctx.stats.textNodes++;
+    } else if (childConfig.type === "IMAGE") {
+      const imageNode = {
+        type: "IMAGE",
+        id: childId,
+        name: "Image",
+        parentId: rootId,
+        children: [],
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        rotation: 0,
+        visible: true,
+        locked: false,
+        opacity: 1,
+        constraints: { horizontal: "left", vertical: "top" },
+        blendMode: "normal",
+        pluginData: {},
+        imageRef: childConfig.imageRef || "",
+        scaleMode: "fill",
+        imageTransform: { scale: 1, offsetX: 0, offsetY: 0 },
+        cornerRadius: 0,
+        strokes: [],
+        effects: []
+      };
+      allNodes[childId] = imageNode;
+      rootFrame.children.push(childId);
+      ctx.stats.imageNodes++;
+    } else if (childConfig.type === "RECTANGLE") {
+      const rectNode = createRectangleNode({
+        id: childId,
+        name: "Rectangle",
+        parentId: rootId,
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        fills: childConfig.fills || [],
+        cornerRadius: childConfig.cornerRadius || 0
+      });
+      allNodes[childId] = rectNode;
+      rootFrame.children.push(childId);
+      ctx.stats.rectangleNodes++;
+    }
+  }
   const page = {
     id: pageId,
     name: preset.name,
     rootId,
     orientation: preset.orientation,
-    size: pageSize,
+    size: { width: pageSize.width, height: pageSize.height, preset: v2PresetId },
     types: [],
     isPlaceholder: false
   };
-  ctx.stats.componentNodes++;
   ctx.stats.pages++;
   ctx.warnings.push(
-    `PagePresetResolved: Using V2 "${v2PresetId}" preset structure (V1 props merged)`
+    `PagePresetResolved: Using V2 "${v2PresetId}" preset structure from shared contentPresets`
   );
   return {
     page,
     rootFrame,
-    nodes: {
-      [rootId]: rootFrame,
-      [componentId]: component
-    }
+    nodes: allNodes
   };
 }
 var MARKER_PRESETS = {
@@ -8612,9 +9313,9 @@ function mergeStyles(existing, newStyle) {
 }
 
 // src/transformers/textTransformer.ts
-function transformText(node, parentId, ctx) {
+function transformText(node, parentId, ctx, parentDimensions) {
   ctx.stats.textNodes++;
-  const styles = parseNodeStyles(node.styles);
+  const styles = parseNodeStyles(node.styles, parentDimensions);
   let htmlContent = node.content ?? node.value ?? "";
   htmlContent = quillToTiptapHtml(htmlContent, ctx.fontMap);
   htmlContent = convertWildcards(htmlContent);
@@ -8627,6 +9328,10 @@ function transformText(node, parentId, ctx) {
   }
   const textAlign = extractTextAlign(htmlContent);
   const fontFamily = styles.fontFamily ? resolveFontFamily(styles.fontFamily, ctx.fontMap) : "inherit";
+  let textAutoResize = "none";
+  if (styles.heightAuto) {
+    textAutoResize = "height";
+  }
   return createTextNode({
     id: generateId(),
     name: node.name || "Text",
@@ -8648,7 +9353,7 @@ function transformText(node, parentId, ctx) {
     lineHeight: styles.lineHeight ? { value: styles.lineHeight, unit: "px" } : { value: 1.5, unit: "auto" },
     textAlign,
     ...fills.length > 0 ? { fills } : {},
-    textAutoResize: "none"
+    textAutoResize
   });
 }
 function stripHtmlTags(html) {
@@ -8662,8 +9367,8 @@ function extractTextAlign(html) {
 }
 
 // src/transformers/rectangleTransformer.ts
-function transformRectangle(node, parentId, ctx) {
-  const styles = parseNodeStyles(node.styles);
+function transformRectangle(node, parentId, ctx, parentDimensions) {
+  const styles = parseNodeStyles(node.styles, parentDimensions);
   const bgImage = styles.backgroundImage;
   if (bgImage && hasValidImageUrl(bgImage)) {
     ctx.stats.imageNodes++;
@@ -8764,8 +9469,8 @@ var PLUGIN_MAP = {
   }
 };
 var RENDER_ONLY_COMPONENTS = /* @__PURE__ */ new Set(["comAvatar", "comSign", "comAgreementSignature"]);
-function transformComponent(groupNode, parentId, ctx) {
-  const styles = parseNodeStyles(groupNode.styles);
+function transformComponent(groupNode, parentId, ctx, parentDimensions) {
+  const styles = parseNodeStyles(groupNode.styles, parentDimensions);
   const { localCom, configNode } = findLocalComRecursive(groupNode);
   if (!localCom) {
     ctx.warnings.push(`MissingLocalCom: localGroup "${groupNode.name}" has no localCom descendant`);
@@ -8885,9 +9590,9 @@ function findLocalComRecursive(node, configAncestor) {
 }
 
 // src/transformers/lineTransformer.ts
-function transformLine(node, parentId, ctx) {
+function transformLine(node, parentId, ctx, parentDimensions) {
   ctx.stats.lineNodes++;
-  const styles = parseNodeStyles(node.styles);
+  const styles = parseNodeStyles(node.styles, parentDimensions);
   const strokes = [];
   if (styles.border) {
     const color = parseColor(styles.border.color);
@@ -8943,24 +9648,24 @@ function createEmptyStats() {
     frameNodes: 0
   };
 }
-function routeNode(prolibuNode, parentId, ctx) {
+function routeNode(prolibuNode, parentId, ctx, parentDimensions) {
   ctx.stats.totalSourceNodes++;
   switch (prolibuNode.type) {
     case "localText":
       ctx.stats.migratedNodes++;
-      return [transformText(prolibuNode, parentId, ctx)];
+      return [transformText(prolibuNode, parentId, ctx, parentDimensions)];
     case "localRectangle":
       ctx.stats.migratedNodes++;
-      return [transformRectangle(prolibuNode, parentId, ctx)];
+      return [transformRectangle(prolibuNode, parentId, ctx, parentDimensions)];
     case "localGroup":
       ctx.stats.migratedNodes++;
-      return transformComponent(prolibuNode, parentId, ctx);
+      return transformComponent(prolibuNode, parentId, ctx, parentDimensions);
     case "localCom":
       ctx.stats.skippedNodes++;
       return [];
     case "localLineHorizontal":
       ctx.stats.migratedNodes++;
-      return [transformLine(prolibuNode, parentId, ctx)];
+      return [transformLine(prolibuNode, parentId, ctx, parentDimensions)];
     case "localLayoutContent":
       ctx.stats.skippedNodes++;
       return [];
@@ -9052,13 +9757,17 @@ function migrateFromLayout(layout, pageSize = PAGE_SIZES.fixed, fontMap) {
       nodes[nodeId] = node;
     }
     const childNodes = frame.children ?? [];
+    const parentDimensions = {
+      width: rootFrame.width,
+      height: rootFrame.height
+    };
     for (const childNode of childNodes) {
       if (childNode.type === "localLayoutContent") {
         ctx.stats.totalSourceNodes++;
         ctx.stats.skippedNodes++;
         continue;
       }
-      const transformedNodes = routeNode(childNode, rootFrame.id, ctx);
+      const transformedNodes = routeNode(childNode, rootFrame.id, ctx, parentDimensions);
       for (const tNode of transformedNodes) {
         nodes[tNode.id] = tNode;
         if (tNode.parentId === rootFrame.id) {
@@ -9292,46 +10001,105 @@ function textInput(options) {
 // src/cli/interactive.ts
 var import_meta2 = {};
 async function runInteractivePrompt() {
-  console.log("\n\u{1F680} Layout Migrator \u2014 Interactive Mode\n");
+  console.log("\n\u{1F680} Layout Migrator \u2014 Modo Interactivo\n");
   const mode = await select({
-    message: "What do you want to do?",
+    message: "\xBFQu\xE9 deseas hacer?",
     choices: [
-      { label: "Migrate within the same account", value: "migrate" },
-      { label: "Transfer from one account to another", value: "transfer" }
+      { label: "Migrar dentro de la misma cuenta", value: "migrate" },
+      { label: "Transferir de una cuenta a otra", value: "transfer" },
+      {
+        label: "Transferir TODOS los templates de una cuenta a otra",
+        value: "migrate-all"
+      }
     ]
   });
   const isTransfer = mode === "transfer";
+  const isMigrateAll = mode === "migrate-all";
   const projectRoot = (0, import_node_path2.resolve)(import_meta2.dirname ?? process.cwd(), "..", "..");
   const domains = listAvailableDomains(projectRoot);
-  const sourceLabel = isTransfer ? "Source domain" : "Domain";
+  const sourceLabel = isTransfer || isMigrateAll ? "Dominio origen" : "Dominio";
   const domain = await pickDomain(domains, sourceLabel);
   let toDomain;
-  if (isTransfer) {
-    toDomain = await pickDomain(domains, "Destination domain");
+  if (isTransfer || isMigrateAll) {
+    toDomain = await pickDomain(domains, "Dominio destino");
     if (toDomain === domain) {
-      console.log(
-        "  \u26A0\uFE0F  Source and destination are the same \u2014 will create a copy in the same account.\n"
-      );
+      console.log("  \u26A0\uFE0F  Origen y destino son iguales \u2014 se crear\xE1n copias en la misma cuenta.\n");
     }
   }
+  let templateType = "layout";
+  let concurrency = 5;
+  let dryRun = false;
+  if (isMigrateAll) {
+    templateType = await select({
+      message: "\xBFQu\xE9 tipos de templates migrar?",
+      choices: [
+        { label: "Todos los tipos", value: "all" },
+        { label: "Solo layouts", value: "layout" },
+        { label: "Solo contenido", value: "content" },
+        { label: "Solo snippets", value: "snippet" }
+      ]
+    });
+    const concurrencyStr = await textInput({
+      message: "Concurrencia (migraciones en paralelo)",
+      defaultValue: "5"
+    });
+    concurrency = parseInt(concurrencyStr, 10) || 5;
+    dryRun = await confirm({
+      message: "\xBFEjecutar primero en modo prueba? (muestra qu\xE9 se migrar\xEDa sin hacer cambios)",
+      defaultValue: true
+    });
+    let hideOldTemplates = false;
+    if (!dryRun) {
+      hideOldTemplates = await confirm({
+        message: "\xBFInhabilitar templates viejos en origen despu\xE9s de migrar? (los marca como ocultos)",
+        defaultValue: false
+      });
+    }
+    console.log("\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+    console.log(`  Origen:       ${domain}`);
+    console.log(`  Destino:      ${toDomain}`);
+    console.log(`  Tipo:         ${templateType}`);
+    console.log(`  Concurrencia: ${concurrency}`);
+    console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
+    console.log(`  Inhabilitar:  ${hideOldTemplates ? "S\xED" : "No"}`);
+    console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
+    const proceed2 = await confirm({ message: "\xBFContinuar?", defaultValue: true });
+    if (!proceed2) {
+      console.log("\n  Cancelado.\n");
+      process.exit(0);
+    }
+    return {
+      domain,
+      toDomain,
+      templateId: "",
+      // Not used for migrate-all
+      templateType,
+      verbose: true,
+      dryRun,
+      saveJson: false,
+      migrateAll: true,
+      concurrency,
+      hideOldTemplates
+    };
+  }
   const templateId = await textInput({
-    message: "contentTemplateCode to migrate",
+    message: "contentTemplateCode a migrar",
     defaultValue: "main-layout"
   });
   const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   console.log("\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
   if (toDomain) {
-    console.log(`  From:        ${domain}`);
-    console.log(`  To:          ${toDomain}`);
+    console.log(`  Origen:      ${domain}`);
+    console.log(`  Destino:     ${toDomain}`);
   } else {
-    console.log(`  Domain:      ${domain}`);
+    console.log(`  Dominio:     ${domain}`);
   }
-  console.log(`  Code:        ${templateId}`);
-  console.log(`  Name:        <original> [migrated ${today}]`);
+  console.log(`  C\xF3digo:      ${templateId}`);
+  console.log(`  Nombre:      <original> [migrated ${today}]`);
   console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
-  const proceed = await confirm({ message: "Proceed?", defaultValue: true });
+  const proceed = await confirm({ message: "\xBFContinuar?", defaultValue: true });
   if (!proceed) {
-    console.log("\n  Cancelled.\n");
+    console.log("\n  Cancelado.\n");
     process.exit(0);
   }
   return {
@@ -9349,17 +10117,21 @@ async function pickDomain(domains, label) {
   if (domains.length > 0) {
     const choices = [
       ...domains.map((d) => ({ label: d, value: d })),
-      { label: "Enter a custom domain\u2026", value: "__custom__" }
+      { label: "Ingresar dominio manualmente\u2026", value: "__custom__" }
     ];
     const picked = await select({ message: label, choices });
     if (picked === "__custom__") {
-      return textInput({ message: "Domain name", placeholder: "e.g. redrenault", required: true });
+      return textInput({
+        message: "Nombre del dominio",
+        placeholder: "ej: redrenault",
+        required: true
+      });
     }
     return picked;
   }
-  console.log("  No .{domain}.env files found.");
-  console.log("  Create one like:  .redrenault.env  with PROLIBU_API_URL and PROLIBU_AUTH_TOKEN\n");
-  return textInput({ message: label, placeholder: "e.g. redrenault", required: true });
+  console.log("  No se encontraron archivos .{dominio}.env");
+  console.log("  Crea uno como:  .redrenault.env  con PROLIBU_API_URL y PROLIBU_AUTH_TOKEN\n");
+  return textInput({ message: label, placeholder: "ej: redrenault", required: true });
 }
 
 // src/index.ts
@@ -9367,10 +10139,23 @@ var program2 = new Command();
 program2.name("layout-migrator").description("Migrate Prolibu v1 content templates to Design Studio v2 format").version("0.1.0");
 program2.command("migrate").description("Migrate a content template by ID and upload it as a new template (same account)").option("--id <code>", "contentTemplateCode of the template", "main-layout").option("--domain <domain>", "Load config from .<domain>.env file (e.g. --domain redrenault)").option("--api-url <url>", "Prolibu API base URL (overrides env file)").option("--token <token>", "Auth token (overrides env file)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally (optional path, default: ./output/)").option("--json-only", "Only save JSON locally, do NOT upload to Prolibu", false).option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleMigrate);
 program2.command("transfer").description("Migrate a template from one Prolibu account to another").option("--id <code>", "contentTemplateCode from the source account", "main-layout").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally").option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleTransfer);
+program2.command("migrate-all").description("Migrate ALL templates from one Prolibu account to another (batch with upsert)").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--type <type>", "Filter by template type: layout | content | snippet | all", "all").option("--concurrency <n>", "Number of parallel migrations (default: 5)", "5").option("--dry-run", "List what would be migrated, no actual changes", false).option("--hide-old", "Hide (disable) old templates in source after migration", false).option("--verbose", "Show detailed progress and warnings", false).action(handleMigrateAll);
 program2.command("run").description("Interactive migration \u2014 prompts for domain, template ID, and options").action(runInteractiveFlow);
 program2.action(runInteractiveFlow);
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
+  if (answers.migrateAll && answers.toDomain) {
+    await handleMigrateAll({
+      from: answers.domain,
+      to: answers.toDomain,
+      type: answers.templateType,
+      concurrency: String(answers.concurrency ?? 5),
+      dryRun: answers.dryRun,
+      verbose: answers.verbose,
+      hideOld: answers.hideOldTemplates ?? false
+    });
+    return;
+  }
   if (answers.toDomain) {
     await handleTransfer({
       id: answers.templateId,
@@ -9459,7 +10244,8 @@ async function handleMigrate(opts) {
       console.log("\n\u{1F4E4} Uploading to Prolibu as new template...");
       const created = await createContentTemplate(result.document, config, {
         name: opts.name,
-        templateType: opts.type
+        templateType: opts.type,
+        fontIds: result.fontSync?.fontIds
       });
       console.log(
         `\u2705 Created: ${created.contentTemplateName ?? opts.name ?? result.document.name}`
@@ -9518,7 +10304,8 @@ async function handleTransfer(opts) {
 \u{1F4E4} Uploading to ${opts.to} as new template...`);
     const created = await createContentTemplate(result.document, destConfig, {
       name: opts.name,
-      templateType: opts.type
+      templateType: opts.type,
+      fontIds: result.fontSync?.fontIds
     });
     console.log(
       `\u2705 Created on ${opts.to}: ${created.contentTemplateName ?? opts.name ?? result.document.name}`
@@ -9601,6 +10388,162 @@ function printValidation(validation, verbose) {
 function sanitizeFilename(name) {
   const cleaned = name.replace(/[^a-zA-Z0-9_\-\s]/g, "").replace(/\s+/g, "-").toLowerCase().slice(0, 100);
   return cleaned || "unnamed-template";
+}
+async function handleMigrateAll(opts) {
+  const concurrency = parseInt(opts.concurrency, 10) || 5;
+  const templateType = opts.type === "all" ? void 0 : opts.type;
+  const sourceConfig = await resolveConfigFromDomain(opts.from, "Source");
+  const destConfig = await resolveConfigFromDomain(opts.to, "Destination");
+  console.log(`
+\u{1F504} Migrate All: ${opts.from} \u2192 ${opts.to}`);
+  console.log(`   Type filter: ${opts.type}`);
+  console.log(`   Concurrency: ${concurrency}`);
+  if (opts.hideOld) {
+    console.log(`   Hide old:    Yes (will hide source templates after migration)`);
+  }
+  console.log(`
+\u{1F4E5} Fetching templates from source (${opts.from})...`);
+  const sourceTemplates = await fetchExistingTemplates(sourceConfig, templateType);
+  console.log(`   Found ${sourceTemplates.length} templates`);
+  if (sourceTemplates.length === 0) {
+    console.log("   Nothing to migrate.");
+    return;
+  }
+  console.log(`
+\u{1F4E5} Fetching existing templates from destination (${opts.to})...`);
+  const destTemplates = await fetchExistingTemplates(destConfig, templateType);
+  const destMap = buildTemplateCodeMap(destTemplates);
+  console.log(`   Found ${destTemplates.length} existing templates in destination`);
+  if (opts.dryRun) {
+    console.log("\n\u{1F50D} Dry run \u2014 showing what would be migrated:\n");
+    let toCreate = 0;
+    let toUpdate = 0;
+    for (const t of sourceTemplates) {
+      const code = t.contentTemplateCode ?? t.contentTemplateName;
+      const migratedCode = `${code}-migrated`;
+      const exists = destMap.has(migratedCode);
+      const action = exists ? "UPDATE" : "CREATE";
+      if (exists) toUpdate++;
+      else toCreate++;
+      if (opts.verbose) {
+        console.log(
+          `   [${action}] ${t.contentTemplateName} \u2192 ${migratedCode} (${t.templateType})`
+        );
+      }
+    }
+    console.log(`
+\u{1F4CA} Summary:`);
+    console.log(`   Would CREATE: ${toCreate}`);
+    console.log(`   Would UPDATE: ${toUpdate}`);
+    console.log(`   Total: ${sourceTemplates.length}`);
+    return;
+  }
+  console.log(`
+\u{1F4E4} Starting migration with concurrency ${concurrency}...`);
+  const results = {
+    created: 0,
+    updated: 0,
+    failed: 0,
+    errors: [],
+    /** IDs of source templates that were successfully migrated (for hiding) */
+    migratedSourceIds: []
+  };
+  const queue = [...sourceTemplates];
+  let completed = 0;
+  const total = queue.length;
+  const processTemplate = async (template) => {
+    const code = template.contentTemplateCode ?? template.contentTemplateName;
+    const migratedCode = `${code}-migrated`;
+    try {
+      const fontApiConfig = {
+        baseUrl: destConfig.baseUrl,
+        authToken: destConfig.authToken
+      };
+      const migrationResult = await migrate(template._id, {
+        config: sourceConfig,
+        fontApiConfig
+      });
+      const upsertResult = await upsertContentTemplate(
+        migrationResult.document,
+        destConfig,
+        destMap,
+        {
+          templateType: template.templateType,
+          sourceCode: code,
+          fontIds: migrationResult.fontSync?.fontIds
+        }
+      );
+      if (upsertResult.action === "created") {
+        results.created++;
+        destMap.set(migratedCode, upsertResult._id);
+      } else {
+        results.updated++;
+      }
+      results.migratedSourceIds.push(template._id);
+      completed++;
+      const pct = Math.round(completed / total * 100);
+      console.log(
+        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} \u2192 ${migratedCode}`
+      );
+    } catch (error) {
+      results.failed++;
+      completed++;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      results.errors.push({ name: template.contentTemplateName, error: errorMsg });
+      console.log(`   [ERR] FAILED: ${template.contentTemplateName} \u2014 ${errorMsg}`);
+    }
+  };
+  const running = [];
+  while (queue.length > 0 || running.length > 0) {
+    while (running.length < concurrency && queue.length > 0) {
+      const template = queue.shift();
+      const promise = processTemplate(template).then(() => {
+        running.splice(running.indexOf(promise), 1);
+      });
+      running.push(promise);
+    }
+    if (running.length > 0) {
+      await Promise.race(running);
+    }
+  }
+  console.log("\n" + "\u2550".repeat(50));
+  console.log("\u{1F4CA} Migration Complete\n");
+  console.log(`   \u2705 Created: ${results.created}`);
+  console.log(`   \u{1F504} Updated: ${results.updated}`);
+  console.log(`   \u274C Failed:  ${results.failed}`);
+  console.log(`   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+  console.log(`   Total:    ${total}`);
+  if (results.errors.length > 0 && opts.verbose) {
+    console.log("\n\u274C Errors:");
+    for (const e of results.errors) {
+      console.log(`   - ${e.name}: ${e.error}`);
+    }
+  }
+  if (opts.hideOld && results.migratedSourceIds.length > 0) {
+    console.log(`
+\u{1F648} Hiding ${results.migratedSourceIds.length} old templates in source...`);
+    let hidden = 0;
+    let hideFailed = 0;
+    for (const sourceId of results.migratedSourceIds) {
+      try {
+        await hideTemplate(sourceId, sourceConfig);
+        hidden++;
+      } catch (error) {
+        hideFailed++;
+        if (opts.verbose) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`   [ERR] Failed to hide ${sourceId}: ${errorMsg}`);
+        }
+      }
+    }
+    console.log(`   \u2705 Hidden: ${hidden}`);
+    if (hideFailed > 0) {
+      console.log(`   \u274C Failed to hide: ${hideFailed}`);
+    }
+  }
+  if (results.failed > 0) {
+    process.exit(1);
+  }
 }
 program2.parseAsync().catch((err) => {
   console.error("\u274C Unexpected error:", err instanceof Error ? err.message : String(err));

@@ -6,20 +6,26 @@ import { generateId } from '@design-studio/schema';
 import type { LineNode, Stroke } from '@design-studio/schema';
 import type { ProlibuNode } from '../types/prolibu.js';
 import type { TransformContext } from './nodeRouter.js';
-import { parseNodeStyles } from '../converters/cssParser.js';
+import { parseNodeStyles, type ParentDimensions } from '../converters/cssParser.js';
 import { parseColor } from '../converters/colorParser.js';
 
 /**
  * Transform a Prolibu localLineHorizontal node into a Design Studio LineNode.
+ *
+ * @param node The source Prolibu localLineHorizontal node
+ * @param parentId ID of the parent frame
+ * @param ctx Transform context
+ * @param parentDimensions Optional parent dimensions for percentage-based sizing
  */
 export function transformLine(
   node: ProlibuNode,
   parentId: string,
-  ctx: TransformContext
+  ctx: TransformContext,
+  parentDimensions?: ParentDimensions
 ): LineNode {
   ctx.stats.lineNodes++;
 
-  const styles = parseNodeStyles(node.styles);
+  const styles = parseNodeStyles(node.styles, parentDimensions);
 
   // Build strokes from border CSS
   const strokes: Stroke[] = [];

@@ -11,7 +11,7 @@ import { createRectangleNode, generateId } from '@design-studio/schema';
 import type { SceneNode, RectangleNode, ImageNode, Fill, Stroke } from '@design-studio/schema';
 import type { ProlibuNode } from '../types/prolibu.js';
 import type { TransformContext } from './nodeRouter.js';
-import { parseNodeStyles } from '../converters/cssParser.js';
+import { parseNodeStyles, type ParentDimensions } from '../converters/cssParser.js';
 import { parseColor } from '../converters/colorParser.js';
 import { convertWildcards } from '../converters/wildcardConverter.js';
 
@@ -19,13 +19,19 @@ import { convertWildcards } from '../converters/wildcardConverter.js';
  * Transform a Prolibu localRectangle node.
  * - If backgroundImage exists → ImageNode (wildcards converted)
  * - Otherwise → RectangleNode
+ *
+ * @param node The source Prolibu localRectangle node
+ * @param parentId ID of the parent frame
+ * @param ctx Transform context
+ * @param parentDimensions Optional parent dimensions for percentage-based sizing
  */
 export function transformRectangle(
   node: ProlibuNode,
   parentId: string,
-  ctx: TransformContext
+  ctx: TransformContext,
+  parentDimensions?: ParentDimensions
 ): SceneNode {
-  const styles = parseNodeStyles(node.styles);
+  const styles = parseNodeStyles(node.styles, parentDimensions);
 
   const bgImage = styles.backgroundImage;
 

@@ -1,5 +1,10 @@
 import { describe, test, expect } from 'vitest';
-import { parseNodeStyles, parsePx, resolveFontFamily } from '../../converters/cssParser.js';
+import {
+  parseNodeStyles,
+  parsePx,
+  parseDimension,
+  resolveFontFamily,
+} from '../../converters/cssParser.js';
 
 describe('cssParser', () => {
   describe('parsePx', () => {
@@ -21,6 +26,40 @@ describe('cssParser', () => {
 
     test('"none" → null', () => {
       expect(parsePx('none')).toBeNull();
+    });
+  });
+
+  describe('parseDimension', () => {
+    test('"90%" with parent 792 → 713', () => {
+      expect(parseDimension('90%', 792)).toBe(713);
+    });
+
+    test('"50%" with parent 612 → 306', () => {
+      expect(parseDimension('50%', 612)).toBe(306);
+    });
+
+    test('"100%" with parent 792 → 792', () => {
+      expect(parseDimension('100%', 792)).toBe(792);
+    });
+
+    test('"70%" with parent 612 → 428', () => {
+      expect(parseDimension('70%', 612)).toBe(428);
+    });
+
+    test('"100px" with parent 792 → 100 (ignores parent)', () => {
+      expect(parseDimension('100px', 792)).toBe(100);
+    });
+
+    test('"auto" → null', () => {
+      expect(parseDimension('auto', 792)).toBeNull();
+    });
+
+    test('undefined → null', () => {
+      expect(parseDimension(undefined, 792)).toBeNull();
+    });
+
+    test('"90%" without parent → 90 (fallback)', () => {
+      expect(parseDimension('90%')).toBe(90);
     });
   });
 
@@ -93,6 +132,50 @@ describe('cssParser', () => {
       const result = parseNodeStyles({ width: '100px', height: 'auto', minHeight: '792px' });
       expect(result.minHeight).toBe(792);
       expect(result.heightAuto).toBe(true);
+    });
+
+    test('calculates percentage widths with parent dimensions', () => {
+      const result = parseNodeStyles(
+        { width: '90%', height: '70%', left: '45px', top: '36px' },
+        { width: 792, height: 612 }
+      );
+      expect(result.width).toBe(713); // 90% of 792
+      expect(result.height).toBe(428); // 70% of 612
+      expect(result.x).toBe(45);
+      expect(result.y).toBe(36);
+    });
+
+    test('falls back gracefully for percentage without parent', () => {
+      const result = parseNodeStyles({ width: '90%', height: '70%' });
+      expect(result.width).toBe(90); // fallback: percentage as number
+      expect(result.height).toBe(70);
+    });
+
+    test('handles width: auto with parent dimensions (85% of parent)', () => {
+      const result = parseNodeStyles(
+        { width: 'auto', height: 'auto', left: '28px', top: '90px' },
+        { width: 612, height: 792 }
+      );
+      // width should be 85% of parent = 612 * 0.85 = 520
+      expect(result.width).toBe(520);
+      expect(result.widthAuto).toBe(true);
+      expect(result.heightAuto).toBe(true);
+      expect(result.x).toBe(28);
+    });
+
+    test('handles width: auto without parent dimensions', () => {
+      const result = parseNodeStyles({ width: 'auto', height: '100px' });
+      expect(result.width).toBe(400); // default fallback
+      expect(result.widthAuto).toBe(true);
+      expect(result.heightAuto).toBe(false);
+    });
+
+    test('sets widthAuto and heightAuto correctly for fixed values', () => {
+      const result = parseNodeStyles({ width: '523px', height: '188px' });
+      expect(result.widthAuto).toBe(false);
+      expect(result.heightAuto).toBe(false);
+      expect(result.width).toBe(523);
+      expect(result.height).toBe(188);
     });
   });
 

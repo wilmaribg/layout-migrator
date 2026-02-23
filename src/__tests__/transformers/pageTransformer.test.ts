@@ -106,4 +106,61 @@ describe('pageTransformer', () => {
 
     expect(result.rootFrame.backgroundImage).toContain('{{{ proposal.cover }}}');
   });
+
+  test('detects portrait orientation from source dimensions', () => {
+    const frame = {
+      name: 'Portrait Page',
+      type: 'FRAME',
+      styles: {
+        width: '612px',
+        height: '792px',
+        backgroundColor: '#ffffff',
+      },
+      children: [],
+    };
+
+    const result = transformPage(frame, 0, PAGE_SIZES.fixed);
+
+    expect(result.page.orientation).toBe('portrait');
+    expect(result.page.size.width).toBe(612);
+    expect(result.page.size.height).toBe(792);
+    expect(result.rootFrame.width).toBe(612);
+    expect(result.rootFrame.height).toBe(792);
+  });
+
+  test('detects landscape orientation from source dimensions', () => {
+    const frame = {
+      name: 'Landscape Page',
+      type: 'FRAME',
+      styles: {
+        width: '792px',
+        height: '612px',
+        backgroundColor: '#ffffff',
+      },
+      children: [],
+    };
+
+    const result = transformPage(frame, 0, PAGE_SIZES.fixed);
+
+    expect(result.page.orientation).toBe('landscape');
+    expect(result.page.size.width).toBe(792);
+    expect(result.page.size.height).toBe(612);
+  });
+
+  test('treats square frames as landscape', () => {
+    const frame = {
+      name: 'Square Page',
+      type: 'FRAME',
+      styles: {
+        width: '612px',
+        height: '612px',
+        backgroundColor: '#ffffff',
+      },
+      children: [],
+    };
+
+    const result = transformPage(frame, 0, PAGE_SIZES.fixed);
+
+    expect(result.page.orientation).toBe('landscape');
+  });
 });

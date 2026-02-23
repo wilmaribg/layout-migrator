@@ -117,6 +117,10 @@ export function documentToPayload(
     name?: string;
     /** Template type: "layout" | "content" | "snippet" */
     templateType?: string;
+    /** Content template code (unique identifier for upsert) */
+    contentTemplateCode?: string;
+    /** Font document IDs to include in embeddedFonts */
+    fontIds?: string[];
   } = {}
 ): Record<string, unknown> {
   const today = new Date().toISOString().slice(0, 10);
@@ -150,22 +154,30 @@ export function documentToPayload(
   // Build Google Fonts link tags from settings
   const googleFontsHtml = buildGoogleFontsLinkTags(doc.settings.typography.googleFonts ?? []);
 
-  // NOTE: embeddedFonts expects Font document IDs from the target account.
-  // Cross-account migration cannot reference fonts that don't exist in destination.
-  // Fonts would need to be uploaded separately to the target account first.
+  // NOTE: embeddedFonts is sent as empty array - fonts are uploaded separately
+  // and linked via fontCode in the document settings/HTML classes.
 
-  return {
+  const payload: Record<string, unknown> = {
     contentTemplateName: name,
     templateType,
     pages,
     html: '', // No browser rendering available — empty is accepted by the API
     // Font configuration
     defaultFont: doc.settings.typography.defaultFontFamily || undefined,
+    // Embedded fonts - empty array (fonts are uploaded separately)
+    embeddedFonts: [],
     // NOTE: assets expects File document IDs, not the actual image data
     meta: {
       googleFonts: googleFontsHtml,
     },
   };
+
+  // Include contentTemplateCode if provided (critical for upsert to work)
+  if (options.contentTemplateCode) {
+    payload.contentTemplateCode = options.contentTemplateCode;
+  }
+
+  return payload;
 }
 
 /**
@@ -177,7 +189,7 @@ export async function createContentTemplate(
   options: {
     name?: string;
     templateType?: string;
-  } = {}
+    contentTemplateCode?: string;    fontIds?: string[];  } = {}
 ): Promise<CreateContentTemplateResult> {
   const payload = documentToPayload(doc, options);
   const url = `${config.baseUrl}/v2/contenttemplate/`;
@@ -206,6 +218,31 @@ export async function createContentTemplate(
     _id,
     contentTemplateName: json.contentTemplateName as string | undefined,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HIDE TEMPLATE (mark as hidden/disabled)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Mark a content template as hidden (disabled) via PATCH.
+ * This effectively "disables" the old template after migration.
+ */
+export async function hideTemplate(templateId: string, config: ProlibuClientConfig): Promise<void> {
+  const url = `${config.baseUrl}/v2/contenttemplate/${templateId}`;
+
+  await fetchWithRetry(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: config.authToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ hidden: true }),
+    },
+    `hiding template ${templateId}`
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -297,4 +334,195 @@ async function safeParseJson(response: Response, context: string): Promise<unkno
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIST EXISTING TEMPLATES (for upsert logic)
+// ═══════════════════════════════════════════════════════════════
+
+export interface ContentTemplateListItem {
+  _id: string;
+  contentTemplateName: string;
+  contentTemplateCode?: string;
+  templateType: string;
+  createdAt?: string;
+}
+
+/**
+ * Fetch all content templates from a Prolibu account.
+ * Used to check existence before deciding POST vs PATCH.
+ */
+export async function fetchExistingTemplates(
+  config: ProlibuClientConfig,
+  templateType?: 'layout' | 'content' | 'snippet'
+): Promise<ContentTemplateListItem[]> {
+  const allTemplates: ContentTemplateListItem[] = [];
+  let page = 1;
+  const limit = 500;
+
+  while (true) {
+    const url = new URL('/v2/contenttemplate/', config.baseUrl);
+    url.searchParams.set(
+      'select',
+      'contentTemplateName contentTemplateCode templateType createdAt'
+    );
+    url.searchParams.set('limit', String(limit));
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('sort', '-createdAt');
+
+    if (templateType) {
+      url.searchParams.set('templateType', templateType);
+    }
+
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: config.authToken,
+          'Content-Type': 'application/json',
+        },
+      },
+      `listing templates page ${page}`
+    );
+
+    const json = await safeParseJson(response, `templates list page ${page}`);
+    const data = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || [];
+
+    if (data.length === 0) break;
+
+    allTemplates.push(...(data as ContentTemplateListItem[]));
+
+    if (data.length < limit) break; // Last page
+    page++;
+  }
+
+  return allTemplates;
+}
+
+/**
+ * Build a lookup map from contentTemplateCode to template ID.
+ * Used for O(1) existence check before upsert.
+ */
+export function buildTemplateCodeMap(templates: ContentTemplateListItem[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const t of templates) {
+    if (t.contentTemplateCode) {
+      map.set(t.contentTemplateCode, t._id);
+    }
+  }
+  return map;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPDATE (PATCH existing template)
+// ═══════════════════════════════════════════════════════════════
+
+export interface UpdateContentTemplateResult {
+  _id: string;
+  contentTemplateName?: string;
+}
+
+/**
+ * Update an existing content template on Prolibu via PATCH.
+ */
+export async function updateContentTemplate(
+  templateId: string,
+  doc: Document,
+  config: ProlibuClientConfig,
+  options: {
+    name?: string;
+    templateType?: string;
+    contentTemplateCode?: string;
+    fontIds?: string[];
+  } = {}
+): Promise<UpdateContentTemplateResult> {
+  const payload = documentToPayload(doc, options);
+  const url = `${config.baseUrl}/v2/contenttemplate/${templateId}`;
+
+  const response = await fetchWithRetry(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: config.authToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+    `updating template ${templateId}`
+  );
+
+  const json = (await safeParseJson(response, 'update response')) as Record<string, unknown>;
+
+  const _id = (json._id ?? json.id ?? templateId) as string;
+
+  return {
+    _id,
+    contentTemplateName: json.contentTemplateName as string | undefined,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPSERT (create or update based on existence)
+// ═══════════════════════════════════════════════════════════════
+
+export interface UpsertResult {
+  action: 'created' | 'updated';
+  _id: string;
+  contentTemplateName?: string;
+}
+
+/**
+ * Create or update a content template based on whether it already exists.
+ * Uses contentTemplateCode with "-migrated" suffix for lookup and storage.
+ * This ensures:
+ * 1. No collision with original templates in same-account migrations
+ * 2. Consistent code for detecting existing migrated templates (UPDATE vs CREATE)
+ */
+export async function upsertContentTemplate(
+  doc: Document,
+  config: ProlibuClientConfig,
+  existingMap: Map<string, string>,
+  options: {
+    name?: string;
+    templateType?: string;
+    /** The original contentTemplateCode from source */
+    sourceCode?: string;
+    /** Font document IDs to include in embeddedFonts */
+    fontIds?: string[];
+  } = {}
+): Promise<UpsertResult> {
+  const sourceCode = options.sourceCode ?? doc.name;
+  // Always use "-migrated" suffix so we can find it on subsequent runs
+  const migratedCode = `${sourceCode}-migrated`;
+
+  // Check if a template with the migrated code already exists
+  const existingId = existingMap.get(migratedCode);
+
+  // Options for create/update - include the migrated code and fontIds
+  const payloadOptions = {
+    name: options.name,
+    templateType: options.templateType,
+    contentTemplateCode: migratedCode,
+    fontIds: options.fontIds,
+  };
+
+  if (existingId) {
+    // Template exists — PATCH
+    const result = await updateContentTemplate(existingId, doc, config, payloadOptions);
+    return {
+      action: 'updated',
+      _id: result._id,
+      contentTemplateName: result.contentTemplateName,
+    };
+  } else {
+    // Template doesn't exist — POST
+    const result = await createContentTemplate(doc, config, payloadOptions);
+    return {
+      action: 'created',
+      _id: result._id,
+      contentTemplateName: result.contentTemplateName,
+    };
+  }
 }

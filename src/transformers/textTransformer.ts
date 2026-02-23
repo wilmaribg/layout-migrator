@@ -6,22 +6,32 @@ import { createTextNode, createRichTextContent, generateId } from '@design-studi
 import type { TextNode, Fill } from '@design-studio/schema';
 import type { ProlibuNode } from '../types/prolibu.js';
 import type { TransformContext } from './nodeRouter.js';
-import { parseNodeStyles, resolveFontFamily } from '../converters/cssParser.js';
+import {
+  parseNodeStyles,
+  resolveFontFamily,
+  type ParentDimensions,
+} from '../converters/cssParser.js';
 import { parseColor } from '../converters/colorParser.js';
 import { quillToTiptapHtml } from '../converters/quillToTiptapHtml.js';
 import { convertWildcards } from '../converters/wildcardConverter.js';
 
 /**
  * Transform a Prolibu localText node into a Design Studio TextNode.
+ *
+ * @param node The source Prolibu localText node
+ * @param parentId ID of the parent frame in the target document
+ * @param ctx Transform context
+ * @param parentDimensions Optional parent dimensions for percentage-based sizing
  */
 export function transformText(
   node: ProlibuNode,
   parentId: string,
-  ctx: TransformContext
+  ctx: TransformContext,
+  parentDimensions?: ParentDimensions
 ): TextNode {
   ctx.stats.textNodes++;
 
-  const styles = parseNodeStyles(node.styles);
+  const styles = parseNodeStyles(node.styles, parentDimensions);
 
   // Process HTML content — API uses 'content', legacy uses 'value'
   let htmlContent = node.content ?? node.value ?? '';
@@ -49,6 +59,16 @@ export function transformText(
     ? resolveFontFamily(styles.fontFamily, ctx.fontMap)
     : 'inherit';
 
+  // Determine textAutoResize based on V1 auto dimensions
+  // When widthAuto was true, we assigned a fixed width (85% of parent),
+  // so we use 'height' to respect that width while allowing auto height
+  let textAutoResize: 'none' | 'width-and-height' | 'height' = 'none';
+  if (styles.heightAuto) {
+    // Both widthAuto+heightAuto → we assigned fixed width, so use 'height'
+    // Only heightAuto → also use 'height' (fixed width, auto height)
+    textAutoResize = 'height';
+  }
+
   return createTextNode({
     id: generateId(),
     name: node.name || 'Text',
@@ -71,7 +91,7 @@ export function transformText(
       : { value: 1.5, unit: 'auto' as const },
     textAlign,
     ...(fills.length > 0 ? { fills } : {}),
-    textAutoResize: 'none' as const,
+    textAutoResize,
   });
 }
 

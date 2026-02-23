@@ -13,8 +13,13 @@ import { dirname, resolve } from 'node:path';
 import { migrate } from './pipeline/migrationPipeline.js';
 import {
   createContentTemplate,
+  fetchExistingTemplates,
+  buildTemplateCodeMap,
+  upsertContentTemplate,
+  hideTemplate,
   ProlibuApiError,
   type ProlibuClientConfig,
+  type ContentTemplateListItem,
 } from './client/prolibuClient.js';
 import { loadDomainEnv } from './config/envLoader.js';
 import { runInteractivePrompt } from './cli/interactive.js';
@@ -57,6 +62,19 @@ program
   .option('--verbose', 'Show warnings and stats', false)
   .action(handleTransfer);
 
+// ── Migrate ALL templates from one account to another ──────
+program
+  .command('migrate-all')
+  .description('Migrate ALL templates from one Prolibu account to another (batch with upsert)')
+  .requiredOption('--from <domain>', 'Source domain (reads from .<domain>.env)')
+  .requiredOption('--to <domain>', 'Destination domain (reads from .<domain>.env)')
+  .option('--type <type>', 'Filter by template type: layout | content | snippet | all', 'all')
+  .option('--concurrency <n>', 'Number of parallel migrations (default: 5)', '5')
+  .option('--dry-run', 'List what would be migrated, no actual changes', false)
+  .option('--hide-old', 'Hide (disable) old templates in source after migration', false)
+  .option('--verbose', 'Show detailed progress and warnings', false)
+  .action(handleMigrateAll);
+
 // ── Interactive command (no flags needed) ──────────────────
 program
   .command('run')
@@ -68,6 +86,21 @@ program.action(runInteractiveFlow);
 
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
+
+  // Migrate-all mode (batch transfer)
+  if (answers.migrateAll && answers.toDomain) {
+    await handleMigrateAll({
+      from: answers.domain,
+      to: answers.toDomain,
+      type: answers.templateType,
+      concurrency: String(answers.concurrency ?? 5),
+      dryRun: answers.dryRun,
+      verbose: answers.verbose,
+      hideOld: answers.hideOldTemplates ?? false,
+    });
+    return;
+  }
+
   if (answers.toDomain) {
     // Transfer mode
     await handleTransfer({
@@ -196,6 +229,7 @@ async function handleMigrate(opts: {
       const created = await createContentTemplate(result.document, config, {
         name: opts.name,
         templateType: opts.type,
+        fontIds: result.fontSync?.fontIds,
       });
 
       console.log(
@@ -293,6 +327,7 @@ async function handleTransfer(opts: {
     const created = await createContentTemplate(result.document, destConfig, {
       name: opts.name,
       templateType: opts.type,
+      fontIds: result.fontSync?.fontIds,
     });
 
     console.log(
@@ -397,6 +432,215 @@ function sanitizeFilename(name: string): string {
     .toLowerCase()
     .slice(0, 100);
   return cleaned || 'unnamed-template';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MIGRATE ALL (batch transfer with upsert)
+// ═══════════════════════════════════════════════════════════════
+
+async function handleMigrateAll(opts: {
+  from: string;
+  to: string;
+  type: string;
+  concurrency: string;
+  dryRun: boolean;
+  verbose: boolean;
+  hideOld: boolean;
+}) {
+  const concurrency = parseInt(opts.concurrency, 10) || 5;
+  const templateType =
+    opts.type === 'all' ? undefined : (opts.type as 'layout' | 'content' | 'snippet');
+
+  const sourceConfig = await resolveConfigFromDomain(opts.from, 'Source');
+  const destConfig = await resolveConfigFromDomain(opts.to, 'Destination');
+
+  console.log(`\n🔄 Migrate All: ${opts.from} → ${opts.to}`);
+  console.log(`   Type filter: ${opts.type}`);
+  console.log(`   Concurrency: ${concurrency}`);
+  if (opts.hideOld) {
+    console.log(`   Hide old:    Yes (will hide source templates after migration)`);
+  }
+
+  // 1. Fetch ALL templates from source
+  console.log(`\n📥 Fetching templates from source (${opts.from})...`);
+  const sourceTemplates = await fetchExistingTemplates(sourceConfig, templateType);
+  console.log(`   Found ${sourceTemplates.length} templates`);
+
+  if (sourceTemplates.length === 0) {
+    console.log('   Nothing to migrate.');
+    return;
+  }
+
+  // 2. Fetch existing templates from destination for upsert logic
+  console.log(`\n📥 Fetching existing templates from destination (${opts.to})...`);
+  const destTemplates = await fetchExistingTemplates(destConfig, templateType);
+  const destMap = buildTemplateCodeMap(destTemplates);
+  console.log(`   Found ${destTemplates.length} existing templates in destination`);
+
+  // 3. Dry run: just show what would happen
+  if (opts.dryRun) {
+    console.log('\n🔍 Dry run — showing what would be migrated:\n');
+    let toCreate = 0;
+    let toUpdate = 0;
+
+    for (const t of sourceTemplates) {
+      const code = t.contentTemplateCode ?? t.contentTemplateName;
+      // Check for the migrated code (with "-migrated" suffix)
+      const migratedCode = `${code}-migrated`;
+      const exists = destMap.has(migratedCode);
+      const action = exists ? 'UPDATE' : 'CREATE';
+
+      if (exists) toUpdate++;
+      else toCreate++;
+
+      if (opts.verbose) {
+        console.log(
+          `   [${action}] ${t.contentTemplateName} → ${migratedCode} (${t.templateType})`
+        );
+      }
+    }
+
+    console.log(`\n📊 Summary:`);
+    console.log(`   Would CREATE: ${toCreate}`);
+    console.log(`   Would UPDATE: ${toUpdate}`);
+    console.log(`   Total: ${sourceTemplates.length}`);
+    return;
+  }
+
+  // 4. Process in batches with concurrency
+  console.log(`\n📤 Starting migration with concurrency ${concurrency}...`);
+
+  const results = {
+    created: 0,
+    updated: 0,
+    failed: 0,
+    errors: [] as Array<{ name: string; error: string }>,
+    /** IDs of source templates that were successfully migrated (for hiding) */
+    migratedSourceIds: [] as string[],
+  };
+
+  const queue = [...sourceTemplates];
+  let completed = 0;
+  const total = queue.length;
+
+  const processTemplate = async (template: ContentTemplateListItem) => {
+    const code = template.contentTemplateCode ?? template.contentTemplateName;
+    const migratedCode = `${code}-migrated`;
+
+    try {
+      // Build fontApiConfig pointing to destination
+      const fontApiConfig = {
+        baseUrl: destConfig.baseUrl,
+        authToken: destConfig.authToken,
+      };
+
+      // Run migration pipeline
+      const migrationResult = await migrate(template._id, {
+        config: sourceConfig,
+        fontApiConfig,
+      });
+
+      // Upsert to destination
+      const upsertResult = await upsertContentTemplate(
+        migrationResult.document,
+        destConfig,
+        destMap,
+        {
+          templateType: template.templateType,
+          sourceCode: code,
+          fontIds: migrationResult.fontSync?.fontIds,
+        }
+      );
+
+      if (upsertResult.action === 'created') {
+        results.created++;
+        // Add to map with migrated code so subsequent templates can detect it
+        destMap.set(migratedCode, upsertResult._id);
+      } else {
+        results.updated++;
+      }
+
+      // Track successfully migrated source template ID (for hiding later)
+      results.migratedSourceIds.push(template._id);
+
+      completed++;
+      const pct = Math.round((completed / total) * 100);
+      console.log(
+        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} → ${migratedCode}`
+      );
+    } catch (error) {
+      results.failed++;
+      completed++;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      results.errors.push({ name: template.contentTemplateName, error: errorMsg });
+      console.log(`   [ERR] FAILED: ${template.contentTemplateName} — ${errorMsg}`);
+    }
+  };
+
+  // Process with concurrency limit
+  const running: Promise<void>[] = [];
+
+  while (queue.length > 0 || running.length > 0) {
+    // Fill up to concurrency limit
+    while (running.length < concurrency && queue.length > 0) {
+      const template = queue.shift()!;
+      const promise = processTemplate(template).then(() => {
+        running.splice(running.indexOf(promise), 1);
+      });
+      running.push(promise);
+    }
+
+    // Wait for at least one to complete
+    if (running.length > 0) {
+      await Promise.race(running);
+    }
+  }
+
+  // 5. Print summary
+  console.log('\n' + '═'.repeat(50));
+  console.log('📊 Migration Complete\n');
+  console.log(`   ✅ Created: ${results.created}`);
+  console.log(`   🔄 Updated: ${results.updated}`);
+  console.log(`   ❌ Failed:  ${results.failed}`);
+  console.log(`   ─────────────────`);
+  console.log(`   Total:    ${total}`);
+
+  if (results.errors.length > 0 && opts.verbose) {
+    console.log('\n❌ Errors:');
+    for (const e of results.errors) {
+      console.log(`   - ${e.name}: ${e.error}`);
+    }
+  }
+
+  // 6. Hide old templates if requested
+  if (opts.hideOld && results.migratedSourceIds.length > 0) {
+    console.log(`\n🙈 Hiding ${results.migratedSourceIds.length} old templates in source...`);
+
+    let hidden = 0;
+    let hideFailed = 0;
+
+    for (const sourceId of results.migratedSourceIds) {
+      try {
+        await hideTemplate(sourceId, sourceConfig);
+        hidden++;
+      } catch (error) {
+        hideFailed++;
+        if (opts.verbose) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(`   [ERR] Failed to hide ${sourceId}: ${errorMsg}`);
+        }
+      }
+    }
+
+    console.log(`   ✅ Hidden: ${hidden}`);
+    if (hideFailed > 0) {
+      console.log(`   ❌ Failed to hide: ${hideFailed}`);
+    }
+  }
+
+  if (results.failed > 0) {
+    process.exit(1);
+  }
 }
 
 program.parseAsync().catch((err) => {

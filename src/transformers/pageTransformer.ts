@@ -88,9 +88,19 @@ export function transformPage(
     backgroundImage = convertWildcards(styles.backgroundImage);
   }
 
+  // Detect orientation from source frame dimensions
+  const sourceWidth = styles.width;
+  const sourceHeight = styles.height;
+  const orientation: 'portrait' | 'landscape' = sourceWidth >= sourceHeight ? 'landscape' : 'portrait';
+
+  // Adjust page size based on detected orientation
+  const effectivePageSize: PageSize = orientation === 'portrait'
+    ? { width: pageSize.height, height: pageSize.width, preset: pageSize.preset }
+    : pageSize;
+
   // Frame dimensions
-  const frameWidth = pageSize.width;
-  const frameHeight = isAutoGrow ? (styles.minHeight ?? pageSize.height) : pageSize.height;
+  const frameWidth = effectivePageSize.width;
+  const frameHeight = isAutoGrow ? (styles.minHeight ?? effectivePageSize.height) : effectivePageSize.height;
 
   // Create root frame
   const rootFrame: FrameNode = createFrameNode({
@@ -103,7 +113,7 @@ export function transformPage(
     backgroundImage,
     backgroundSize: backgroundImage ? 'cover' : undefined,
     autoGrow: isAutoGrow || undefined,
-    minHeight: isAutoGrow ? (styles.minHeight ?? pageSize.height) : undefined,
+    minHeight: isAutoGrow ? (styles.minHeight ?? effectivePageSize.height) : undefined,
     clipContent: true,
   });
 
@@ -135,8 +145,8 @@ export function transformPage(
     id: pageId,
     name: frame.name || `Page ${index + 1}`,
     rootId,
-    orientation: 'landscape',
-    size: pageSize,
+    orientation,
+    size: effectivePageSize,
     types: isPlaceholder ? ['marker'] : [],
     isPlaceholder,
     ...(placeholder && { placeholder }),

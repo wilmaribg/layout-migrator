@@ -10,12 +10,18 @@ import {
   generateId,
   createTextNode,
   createRichTextContent,
+  createRectangleNode,
+  contentPresets,
+  type ContentPagePresetId,
 } from '@design-studio/schema';
 import type {
   Page,
   FrameNode,
   SceneNode,
   ComponentNode,
+  ImageNode,
+  TextNode,
+  RectangleNode,
   Fill,
   PageSize,
 } from '@design-studio/schema';
@@ -33,6 +39,8 @@ const V1_TO_V2_PRESET_MAP: Record<string, string> = {
   quotePage: 'quote-page',
   quickProposalApprovalPage: 'quick-proposal-approval-page',
   accordionPage: 'accordion-page',
+  agreementSignaturePage: 'agreement-signature-page',
+  satisfactionRate: 'satisfaction-page',
   // layoutProductSnippets is handled separately as placeholder
 };
 
@@ -40,179 +48,6 @@ const V1_TO_V2_PRESET_MAP: Record<string, string> = {
  * Names of localGroup children that indicate a known page preset.
  */
 const KNOWN_PRESET_NAMES = new Set(Object.keys(V1_TO_V2_PRESET_MAP));
-
-// ═══════════════════════════════════════════════════════════════
-// V2 PAGE PRESET STRUCTURES
-// These match exactly what editorStore.addPageFromContentPreset creates.
-// ═══════════════════════════════════════════════════════════════
-
-interface V2PresetConfig {
-  name: string;
-  width: number;
-  height: number;
-  orientation: 'portrait' | 'landscape';
-  backgroundColor: { r: number; g: number; b: number; a: number };
-  pageType: string;
-  autoGrow?: boolean;
-  minHeight?: number;
-  /** The main component of this preset */
-  component: {
-    pluginId: string;
-    componentName: string;
-    defaultProps: Record<string, unknown>;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-}
-
-/**
- * V2 page preset configurations.
- * These must stay in sync with apps/web/src/stores/editorStore.ts contentPresets.
- */
-const V2_PRESETS: Record<string, V2PresetConfig> = {
-  'quote-page': {
-    name: 'Quote',
-    width: 612,
-    height: 792,
-    orientation: 'portrait',
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: 'pricing',
-    autoGrow: true,
-    minHeight: 792,
-    component: {
-      pluginId: 'com-quote',
-      componentName: 'Price Quote',
-      defaultProps: {
-        title: 'Price Summary.',
-        summary: '',
-        hideTitleAndDescription: false,
-        repeatHeaders: false,
-        showTitleAndDescription: true,
-        showDateExpanded: false,
-        showGroupExpanded: false,
-        showFamilyExpanded: false,
-        showLineItemExpanded: false,
-        showConsolidated: false,
-        showAditionalNotes: false,
-        hideSummaryOfDates: false,
-        hideSummaryOfGroups: false,
-        hideSummaryOfFamilies: false,
-        hideSummaryOfTotal: false,
-        showPaymentPlan: true,
-        columns: [
-          {
-            label: 'Concept',
-            cell: 'productName',
-            width: '110px',
-            minWidth: '110px',
-            visible: true,
-          },
-          { label: 'Qty.', cell: 'quantity', width: '25px', minWidth: '25px', visible: true },
-          {
-            label: 'U. Price',
-            cell: 'netUnitPrice',
-            width: '55px',
-            minWidth: '55px',
-            visible: true,
-          },
-          { label: 'Sub Total', cell: 'subTotal', width: '55px', minWidth: '55px', visible: true },
-          {
-            label: 'Discount',
-            cell: 'discountAmount',
-            width: '55px',
-            minWidth: '55px',
-            visible: true,
-          },
-          {
-            label: 'Taxes',
-            cell: 'netTotalTaxAmount',
-            width: '55px',
-            minWidth: '55px',
-            visible: true,
-          },
-          { label: 'Total', cell: 'total', width: '75px', minWidth: '75px', visible: true },
-        ],
-        paymentPlanColumns: [
-          { label: '#', cell: 'number', width: 60, minWidth: 60, visible: true, align: 'center' },
-          {
-            label: 'Title',
-            cell: 'title',
-            width: 280,
-            minWidth: 200,
-            visible: true,
-            align: 'left',
-          },
-          {
-            label: 'Payment Date',
-            cell: 'dueDate',
-            width: 120,
-            minWidth: 120,
-            visible: true,
-            align: 'center',
-          },
-          { label: 'Total', cell: 'total', width: 100, visible: true, align: 'right' },
-        ],
-      },
-      x: 32,
-      y: 32,
-      width: 548,
-      height: 728,
-    },
-  },
-  'quick-proposal-approval-page': {
-    name: 'Quick Approval',
-    width: 792,
-    height: 612,
-    orientation: 'landscape',
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: 'content',
-    component: {
-      pluginId: 'com-quick-proposal-approval',
-      componentName: 'Quick Proposal Approval',
-      defaultProps: {
-        title: 'Proposal Approval.',
-        descriptionText: null,
-        descriptionApproved: null,
-        descriptionDenied: null,
-      },
-      x: 40,
-      y: 100,
-      width: 712,
-      height: 472,
-    },
-  },
-  'accordion-page': {
-    name: 'FAQ / Accordion',
-    width: 792,
-    height: 612,
-    orientation: 'landscape',
-    backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
-    pageType: 'content',
-    autoGrow: true,
-    minHeight: 612,
-    component: {
-      pluginId: 'com-accordion',
-      componentName: 'Accordion',
-      defaultProps: {
-        rows: [
-          {
-            title: 'Title',
-            description: 'Description',
-            expanded: false,
-            blockExpanded: false,
-          },
-        ],
-        startExpanded: false,
-      },
-      x: 40,
-      y: 40,
-      width: 712,
-      height: 500,
-    },
-  },
-};
 
 // ═══════════════════════════════════════════════════════════════
 // DETECTION
@@ -300,8 +135,8 @@ export interface ResolvedPagePreset {
 }
 
 /**
- * Create a V2 page preset structure using exact V2 definitions.
- * Merges V1 comCompConfig props into the component.
+ * Create a V2 page preset structure using shared contentPresets from @design-studio/schema.
+ * Merges V1 comCompConfig props into components.
  */
 export function resolvePagePreset(
   v2PresetId: string,
@@ -311,23 +146,23 @@ export function resolvePagePreset(
   ctx: TransformContext,
   v1Styles?: Record<string, unknown>
 ): ResolvedPagePreset {
-  const preset = V2_PRESETS[v2PresetId];
+  // Use shared content presets from schema
+  const preset = contentPresets[v2PresetId as ContentPagePresetId];
   if (!preset) {
     throw new Error(`Unknown V2 preset ID: ${v2PresetId}`);
   }
 
   const pageId = generateId();
   const rootId = generateId();
-  const componentId = generateId();
 
   // Create fills from preset background
   const fills: Fill[] = [{ type: 'solid', color: preset.backgroundColor, opacity: 1 }];
 
-  // Use preset dimensions or page size
-  const frameWidth = preset.width || pageSize.width;
-  const frameHeight = preset.height || pageSize.height;
+  // Use preset dimensions
+  const frameWidth = preset.width;
+  const frameHeight = preset.height;
 
-  // Detect autoGrow from V1 styles (height: 'auto' or minHeight present)
+  // Detect autoGrow from V1 styles or preset config
   const v1Height = v1Styles?.height as string | undefined;
   const v1MinHeight = v1Styles?.minHeight as string | undefined;
   const isAutoGrow = v1Height === 'auto' || v1MinHeight !== undefined || preset.autoGrow;
@@ -346,38 +181,117 @@ export function resolvePagePreset(
     minHeight: isAutoGrow ? (minHeight ?? frameHeight) : undefined,
   });
 
-  // Create component node with merged props
-  const mergedProps = {
-    ...preset.component.defaultProps,
-    ...(v1Props ?? {}),
+  // Collect all nodes for this preset
+  const allNodes: Record<string, SceneNode> = {
+    [rootId]: rootFrame,
   };
 
-  const component: ComponentNode = {
-    type: 'COMPONENT',
-    id: componentId,
-    name: preset.component.componentName,
-    parentId: rootId,
-    children: [],
-    x: preset.component.x,
-    y: preset.component.y,
-    width: preset.component.width,
-    height: preset.component.height,
-    rotation: 0,
-    visible: true,
-    locked: false,
-    opacity: 1,
-    constraints: { horizontal: 'left', vertical: 'top' },
-    blendMode: 'normal',
-    pluginData: {},
-    pluginId: preset.component.pluginId,
-    componentName: preset.component.componentName,
-    props: mergedProps,
-    pluginVersion: '1.0.0',
-    fallbackRender: 'placeholder',
-  };
+  // Create child nodes from preset.children
+  for (const childConfig of preset.children) {
+    const childId = generateId();
 
-  // Link component to root frame
-  rootFrame.children = [componentId];
+    if (childConfig.type === 'COMPONENT') {
+      // Merge V1 props with default props for matching component
+      const mergedProps = {
+        ...(childConfig.props || childConfig.pluginProps || {}),
+        ...(v1Props ?? {}),
+      };
+
+      const componentNode: ComponentNode = {
+        type: 'COMPONENT',
+        id: childId,
+        name: childConfig.componentName || 'Component',
+        parentId: rootId,
+        children: [],
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        rotation: 0,
+        visible: true,
+        locked: false,
+        opacity: 1,
+        constraints: { horizontal: 'left', vertical: 'top' },
+        blendMode: 'normal',
+        pluginData: {},
+        pluginId: childConfig.pluginId || 'unknown',
+        componentName: childConfig.componentName || 'Component',
+        props: mergedProps,
+        pluginVersion: '1.0.0',
+        fallbackRender: 'placeholder',
+      };
+      allNodes[childId] = componentNode;
+      rootFrame.children.push(childId);
+      ctx.stats.componentNodes++;
+    } else if (childConfig.type === 'TEXT') {
+      const textNode: TextNode = createTextNode({
+        id: childId,
+        name: 'Text',
+        parentId: rootId,
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        content: createRichTextContent(childConfig.characters || ''),
+        htmlContent: childConfig.htmlContent || '',
+        characters: childConfig.characters || '',
+        tiptapState: childConfig.tiptapState || null,
+        textAutoResize: 'none',
+      });
+      // Apply text styles
+      if (childConfig.fontSize) (textNode as any).fontSize = childConfig.fontSize;
+      if (childConfig.fontWeight) (textNode as any).fontWeight = childConfig.fontWeight;
+      if (childConfig.textAlign) (textNode as any).textAlign = childConfig.textAlign;
+      if (childConfig.fills) (textNode as any).fills = childConfig.fills;
+
+      allNodes[childId] = textNode;
+      rootFrame.children.push(childId);
+      ctx.stats.textNodes++;
+    } else if (childConfig.type === 'IMAGE') {
+      const imageNode: ImageNode = {
+        type: 'IMAGE',
+        id: childId,
+        name: 'Image',
+        parentId: rootId,
+        children: [],
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        rotation: 0,
+        visible: true,
+        locked: false,
+        opacity: 1,
+        constraints: { horizontal: 'left', vertical: 'top' },
+        blendMode: 'normal',
+        pluginData: {},
+        imageRef: childConfig.imageRef || '',
+        scaleMode: 'fill',
+        imageTransform: { scale: 1, offsetX: 0, offsetY: 0 },
+        cornerRadius: 0,
+        strokes: [],
+        effects: [],
+      };
+      allNodes[childId] = imageNode;
+      rootFrame.children.push(childId);
+      ctx.stats.imageNodes++;
+    } else if (childConfig.type === 'RECTANGLE') {
+      const rectNode: RectangleNode = createRectangleNode({
+        id: childId,
+        name: 'Rectangle',
+        parentId: rootId,
+        x: childConfig.x,
+        y: childConfig.y,
+        width: childConfig.width,
+        height: childConfig.height,
+        fills: childConfig.fills || [],
+        cornerRadius: childConfig.cornerRadius || 0,
+      });
+      allNodes[childId] = rectNode;
+      rootFrame.children.push(childId);
+      ctx.stats.rectangleNodes++;
+    }
+  }
 
   // Create page
   const page: Page = {
@@ -385,27 +299,22 @@ export function resolvePagePreset(
     name: preset.name,
     rootId,
     orientation: preset.orientation,
-    size: pageSize,
+    size: { width: pageSize.width, height: pageSize.height, preset: v2PresetId },
     types: [],
     isPlaceholder: false,
   };
 
-  // Update stats
-  ctx.stats.componentNodes++;
   ctx.stats.pages++;
 
   // Add warning for reference
   ctx.warnings.push(
-    `PagePresetResolved: Using V2 "${v2PresetId}" preset structure (V1 props merged)`
+    `PagePresetResolved: Using V2 "${v2PresetId}" preset structure from shared contentPresets`
   );
 
   return {
     page,
     rootFrame,
-    nodes: {
-      [rootId]: rootFrame,
-      [componentId]: component,
-    },
+    nodes: allNodes,
   };
 }
 
@@ -413,7 +322,7 @@ export function resolvePagePreset(
  * Check if a preset ID is known.
  */
 export function isKnownV2Preset(presetId: string): boolean {
-  return presetId in V2_PRESETS;
+  return presetId in contentPresets;
 }
 
 // ═══════════════════════════════════════════════════════════════

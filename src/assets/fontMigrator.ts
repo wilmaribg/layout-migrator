@@ -25,6 +25,8 @@ export interface FontApiConfig {
 export interface FontSyncResult {
   /** Map of original font names → new fontCode */
   fontMap: Record<string, string>;
+  /** Font document IDs to include in embeddedFonts */
+  fontIds: string[];
   /** Fonts that were uploaded */
   uploaded: string[];
   /** Fonts that already existed (skipped) */
@@ -60,42 +62,75 @@ export async function syncFonts(
 ): Promise<FontSyncResult> {
   const result: FontSyncResult = {
     fontMap: {},
+    fontIds: [],
     uploaded: [],
     skipped: [],
     failed: [],
   };
 
+  console.log('\n🔤 [FontSync] Starting font synchronization...');
+  console.log(`   Input: ${embeddedFonts.length} embedded fonts`);
+
   // 1. Extract fonts (no normalization, exact names preserved)
   const uniqueFonts = extractFonts(embeddedFonts);
+  console.log(`   Unique fonts extracted: ${uniqueFonts.length}`);
+  
   if (uniqueFonts.length === 0) {
+    console.log('   No fonts to process, skipping sync');
     return result;
   }
 
+  // Log each font to be processed
+  for (const font of uniqueFonts) {
+    console.log(`   → Font: "${font.baseName}" (code: "${font.fontCode}")`);
+  }
+
   // 2. Get existing fonts from v2
+  console.log('\n   Fetching existing fonts from v2...');
   const existingFonts = await fetchExistingFonts(apiConfig);
+  console.log(`   Found ${existingFonts.length} existing fonts in v2 account`);
+  
   const existingByCode = new Map(existingFonts.map((f) => [f.fontCode, f]));
+  const existingByName = new Map(existingFonts.map((f) => [f.fontName, f]));
 
   // 3. Process each unique font
+  console.log('\n   Processing fonts...');
   for (const font of uniqueFonts) {
     const { baseName, fontCode, originalNames, url } = font;
 
-    // Check if already exists
-    if (existingByCode.has(fontCode)) {
+    // Check if already exists by fontCode OR fontName
+    const existingByCodeMatch = existingByCode.get(fontCode);
+    const existingByNameMatch = existingByName.get(baseName);
+    const existing = existingByCodeMatch || existingByNameMatch;
+
+    if (existing) {
+      const matchType = existingByCodeMatch ? 'fontCode' : 'fontName';
+      console.log(`   ⏭️  SKIP: "${baseName}" - already exists (matched by ${matchType})`);
+      console.log(`      Existing: _id="${existing._id}", fontCode="${existing.fontCode}", fontName="${existing.fontName}"`);
+      
       result.skipped.push(baseName);
+      result.fontIds.push(existing._id);
 
       // Map all original names to the existing fontCode
       for (const oldName of originalNames) {
-        result.fontMap[oldName] = fontCode;
+        result.fontMap[oldName] = existing.fontCode;
       }
       continue;
     }
 
     // Download and upload
+    console.log(`   📥 DOWNLOAD: "${baseName}" from ${url.substring(0, 60)}...`);
     try {
       const file = await downloadFont(url, baseName);
+      console.log(`   📤 UPLOAD: "${baseName}" (fontCode: "${fontCode}", size: ${file.size} bytes)`);
+      
       const uploaded = await uploadFont(file, baseName, fontCode, apiConfig);
+      console.log(`   ✅ UPLOADED: "${baseName}" → _id="${uploaded._id}", fontCode="${uploaded.fontCode}"`);
 
       result.uploaded.push(baseName);
+      if (uploaded._id) {
+        result.fontIds.push(uploaded._id);
+      }
 
       // Map all original names to the new fontCode
       for (const oldName of originalNames) {
@@ -103,9 +138,11 @@ export async function syncFonts(
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`   ❌ ERROR: "${baseName}" - ${errorMessage}`);
 
       // Check if it's a duplicate error (race condition or parallel upload)
       if (isDuplicateError(errorMessage)) {
+        console.log(`      (Duplicate detected, treating as skipped)`);
         result.skipped.push(baseName);
 
         for (const oldName of originalNames) {
@@ -122,6 +159,14 @@ export async function syncFonts(
     }
   }
 
+  // Summary log
+  console.log('\n   📊 Font Sync Summary:');
+  console.log(`      Uploaded: ${result.uploaded.length} (${result.uploaded.join(', ') || 'none'})`);
+  console.log(`      Skipped:  ${result.skipped.length} (${result.skipped.join(', ') || 'none'})`);
+  console.log(`      Failed:   ${result.failed.length} (${result.failed.map(f => f.name).join(', ') || 'none'})`);
+  console.log(`      Font IDs: ${result.fontIds.length} total`);
+  console.log(`      Font Map: ${Object.keys(result.fontMap).length} mappings`);
+  
   return result;
 }
 
@@ -250,7 +295,7 @@ async function uploadFont(
   fontName: string,
   fontCode: string,
   config: FontApiConfig
-): Promise<{ fontCode: string }> {
+): Promise<{ fontCode: string; _id?: string }> {
   const url = new URL('/v2/font', config.baseUrl);
 
   const formData = new FormData();
@@ -278,8 +323,8 @@ async function uploadFont(
     throw new Error(errorData.error || `HTTP ${response.status}`);
   }
 
-  const data = (await response.json()) as { fontCode?: string };
-  return { fontCode: data.fontCode || fontCode };
+  const data = (await response.json()) as { fontCode?: string; _id?: string };
+  return { fontCode: data.fontCode || fontCode, _id: data._id };
 }
 
 /**

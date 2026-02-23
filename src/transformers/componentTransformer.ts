@@ -7,7 +7,7 @@ import { createFrameNode, generateId } from '@design-studio/schema';
 import type { SceneNode, ComponentNode, FrameNode } from '@design-studio/schema';
 import type { ProlibuNode } from '../types/prolibu.js';
 import type { TransformContext } from './nodeRouter.js';
-import { parseNodeStyles } from '../converters/cssParser.js';
+import { parseNodeStyles, type ParentDimensions } from '../converters/cssParser.js';
 
 // ═══════════════════════════════════════════════════════════════
 // PLUGIN MAP
@@ -39,13 +39,19 @@ const RENDER_ONLY_COMPONENTS = new Set(['comAvatar', 'comSign', 'comAgreementSig
 /**
  * Transform a Prolibu localGroup (with comCompConfig) + its localCom child
  * into a FrameNode wrapper + ComponentNode child.
+ *
+ * @param groupNode The source Prolibu localGroup node
+ * @param parentId ID of the parent frame
+ * @param ctx Transform context
+ * @param parentDimensions Optional parent dimensions for percentage-based sizing
  */
 export function transformComponent(
   groupNode: ProlibuNode,
   parentId: string,
-  ctx: TransformContext
+  ctx: TransformContext,
+  parentDimensions?: ParentDimensions
 ): SceneNode[] {
-  const styles = parseNodeStyles(groupNode.styles);
+  const styles = parseNodeStyles(groupNode.styles, parentDimensions);
 
   // Find the localCom child — search recursively since it may be nested
   // e.g., quotePage → localGroup → localCom

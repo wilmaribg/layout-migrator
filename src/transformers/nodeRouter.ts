@@ -5,6 +5,7 @@
 import type { SceneNode } from '@design-studio/schema';
 import type { ProlibuNode } from '../types/prolibu.js';
 import type { ResolvedFonts } from '../assets/fontResolver.js';
+import type { ParentDimensions } from '../converters/cssParser.js';
 import { transformText } from './textTransformer.js';
 import { transformRectangle } from './rectangleTransformer.js';
 import { transformComponent } from './componentTransformer.js';
@@ -58,26 +59,32 @@ export function createEmptyStats(): MigrationStats {
 /**
  * Route a Prolibu node to the appropriate transformer based on its type.
  * Returns an array of SceneNodes (some transforms produce multiple nodes).
+ *
+ * @param prolibuNode The source Prolibu node to transform
+ * @param parentId The ID of the parent node in the target document
+ * @param ctx Transform context with stats, warnings, fonts, etc.
+ * @param parentDimensions Optional dimensions of the parent frame for percentage calculations
  */
 export function routeNode(
   prolibuNode: ProlibuNode,
   parentId: string,
-  ctx: TransformContext
+  ctx: TransformContext,
+  parentDimensions?: ParentDimensions
 ): SceneNode[] {
   ctx.stats.totalSourceNodes++;
 
   switch (prolibuNode.type) {
     case 'localText':
       ctx.stats.migratedNodes++;
-      return [transformText(prolibuNode, parentId, ctx)];
+      return [transformText(prolibuNode, parentId, ctx, parentDimensions)];
 
     case 'localRectangle':
       ctx.stats.migratedNodes++;
-      return [transformRectangle(prolibuNode, parentId, ctx)];
+      return [transformRectangle(prolibuNode, parentId, ctx, parentDimensions)];
 
     case 'localGroup':
       ctx.stats.migratedNodes++;
-      return transformComponent(prolibuNode, parentId, ctx);
+      return transformComponent(prolibuNode, parentId, ctx, parentDimensions);
 
     case 'localCom':
       // Handled inside componentTransformer via localGroup parent
@@ -86,7 +93,7 @@ export function routeNode(
 
     case 'localLineHorizontal':
       ctx.stats.migratedNodes++;
-      return [transformLine(prolibuNode, parentId, ctx)];
+      return [transformLine(prolibuNode, parentId, ctx, parentDimensions)];
 
     case 'localLayoutContent':
       // Absorbed by pageTransformer — indicates parent presetPage is a placeholder
