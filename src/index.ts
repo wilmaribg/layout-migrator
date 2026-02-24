@@ -73,6 +73,8 @@ program
   .option('--dry-run', 'List what would be migrated, no actual changes', false)
   .option('--hide-old', 'Hide (disable) old templates in source after migration', false)
   .option('--verbose', 'Show detailed progress and warnings', false)
+  .option('--ids <codes>', 'Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)')
+  .option('--keep-original-name', 'Keep original template name and code (no -migrated suffix)', false)
   .action(handleMigrateAll);
 
 // ── Interactive command (no flags needed) ──────────────────
@@ -97,6 +99,8 @@ async function runInteractiveFlow() {
       dryRun: answers.dryRun,
       verbose: answers.verbose,
       hideOld: answers.hideOldTemplates ?? false,
+      ids: answers.ids,
+      keepOriginalName: answers.keepOriginalName,
     });
     return;
   }
@@ -446,6 +450,8 @@ async function handleMigrateAll(opts: {
   dryRun: boolean;
   verbose: boolean;
   hideOld: boolean;
+  ids?: string | string[];
+  keepOriginalName?: boolean;
 }) {
   const concurrency = parseInt(opts.concurrency, 10) || 5;
   const templateType =
@@ -454,11 +460,34 @@ async function handleMigrateAll(opts: {
   const sourceConfig = await resolveConfigFromDomain(opts.from, 'Source');
   const destConfig = await resolveConfigFromDomain(opts.to, 'Destination');
 
+  // Resolve IDs: CLI --ids > MIGRATION_IDS from .env
+  let resolvedIds = opts.ids;
+  if (!resolvedIds) {
+    try {
+      const sourceEnv = await loadDomainEnv(opts.from);
+      const envIds = sourceEnv.MIGRATION_IDS?.split(',').map(s => s.trim()).filter(Boolean);
+      if (envIds && envIds.length > 0) {
+        resolvedIds = envIds;
+        console.log(`   📋 Using ${envIds.length} IDs from MIGRATION_IDS in .${opts.from}.env`);
+      }
+    } catch {
+      // Env already loaded for config, MIGRATION_IDS not present — continue without filter
+    }
+  }
+
   console.log(`\n🔄 Migrate All: ${opts.from} → ${opts.to}`);
   console.log(`   Type filter: ${opts.type}`);
   console.log(`   Concurrency: ${concurrency}`);
+  if (opts.keepOriginalName) {
+    console.log(`   Keep name:   Yes (no -migrated suffix)`);
+  }
   if (opts.hideOld) {
     console.log(`   Hide old:    Yes (will hide source templates after migration)`);
+  }
+
+  // ⚠️ Warning: keepOriginalName + same account = will OVERWRITE originals
+  if (opts.keepOriginalName && opts.from === opts.to) {
+    console.log(`\n   ⚠️  WARNING: Same account + keep-original-name will OVERWRITE original templates!`);
   }
 
   // 1. Fetch ALL templates from source
@@ -466,7 +495,30 @@ async function handleMigrateAll(opts: {
   const sourceTemplates = await fetchExistingTemplates(sourceConfig, templateType);
   console.log(`   Found ${sourceTemplates.length} templates`);
 
-  if (sourceTemplates.length === 0) {
+  // 1b. Filter by specific IDs if provided (accepts _id or contentTemplateCode)
+  let templatesToMigrate = sourceTemplates;
+  const idsToFilter: string[] = resolvedIds
+    ? (typeof resolvedIds === 'string' ? resolvedIds.split(',').map(s => s.trim()) : resolvedIds)
+    : [];
+
+  if (idsToFilter.length > 0) {
+    const idSet = new Set(idsToFilter);
+    templatesToMigrate = sourceTemplates.filter(t =>
+      idSet.has(t._id) || idSet.has(t.contentTemplateCode ?? '')
+    );
+
+    // Warning: IDs not found
+    const foundIds = new Set(
+      templatesToMigrate.flatMap(t => [t._id, t.contentTemplateCode].filter(Boolean) as string[])
+    );
+    const notFound = idsToFilter.filter(id => !foundIds.has(id));
+    if (notFound.length > 0) {
+      console.log(`   ⚠️  IDs no encontrados: ${notFound.join(', ')}`);
+    }
+    console.log(`   Filtered to ${templatesToMigrate.length} templates by IDs`);
+  }
+
+  if (templatesToMigrate.length === 0) {
     console.log('   Nothing to migrate.');
     return;
   }
@@ -483,11 +535,11 @@ async function handleMigrateAll(opts: {
     let toCreate = 0;
     let toUpdate = 0;
 
-    for (const t of sourceTemplates) {
+    for (const t of templatesToMigrate) {
       const code = t.contentTemplateCode ?? t.contentTemplateName;
-      // Check for the migrated code (with "-migrated" suffix)
-      const migratedCode = `${code}-migrated`;
-      const exists = destMap.has(migratedCode);
+      // Check for the migrated code (with "-migrated" suffix unless keepOriginalName)
+      const targetCode = opts.keepOriginalName ? code : `${code}-migrated`;
+      const exists = destMap.has(targetCode);
       const action = exists ? 'UPDATE' : 'CREATE';
 
       if (exists) toUpdate++;
@@ -495,7 +547,7 @@ async function handleMigrateAll(opts: {
 
       if (opts.verbose) {
         console.log(
-          `   [${action}] ${t.contentTemplateName} → ${migratedCode} (${t.templateType})`
+          `   [${action}] ${t.contentTemplateName} → ${targetCode} (${t.templateType})`
         );
       }
     }
@@ -503,7 +555,7 @@ async function handleMigrateAll(opts: {
     console.log(`\n📊 Summary:`);
     console.log(`   Would CREATE: ${toCreate}`);
     console.log(`   Would UPDATE: ${toUpdate}`);
-    console.log(`   Total: ${sourceTemplates.length}`);
+    console.log(`   Total: ${templatesToMigrate.length}`);
     return;
   }
 
@@ -519,13 +571,13 @@ async function handleMigrateAll(opts: {
     migratedSourceIds: [] as string[],
   };
 
-  const queue = [...sourceTemplates];
+  const queue = [...templatesToMigrate];
   let completed = 0;
   const total = queue.length;
 
   const processTemplate = async (template: ContentTemplateListItem) => {
     const code = template.contentTemplateCode ?? template.contentTemplateName;
-    const migratedCode = `${code}-migrated`;
+    const targetCode = opts.keepOriginalName ? code : `${code}-migrated`;
 
     try {
       // Build fontApiConfig pointing to destination
@@ -549,13 +601,15 @@ async function handleMigrateAll(opts: {
           templateType: template.templateType,
           sourceCode: code,
           fontIds: migrationResult.fontSync?.fontIds,
+          taxonomy: migrationResult.taxonomy,
+          keepOriginalName: opts.keepOriginalName,
         }
       );
 
       if (upsertResult.action === 'created') {
         results.created++;
-        // Add to map with migrated code so subsequent templates can detect it
-        destMap.set(migratedCode, upsertResult._id);
+        // Add to map with target code so subsequent templates can detect it
+        destMap.set(targetCode, upsertResult._id);
       } else {
         results.updated++;
       }
@@ -566,7 +620,7 @@ async function handleMigrateAll(opts: {
       completed++;
       const pct = Math.round((completed / total) * 100);
       console.log(
-        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} → ${migratedCode}`
+        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} → ${targetCode}`
       );
     } catch (error) {
       results.failed++;

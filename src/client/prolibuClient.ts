@@ -121,10 +121,14 @@ export function documentToPayload(
     contentTemplateCode?: string;
     /** Font document IDs to include in embeddedFonts */
     fontIds?: string[];
+    /** Taxonomy for language/category classification (passthrough) */
+    taxonomy?: Record<string, unknown>;
+    /** Keep original name without "[migrated YYYY-MM-DD]" suffix */
+    keepOriginalName?: boolean;
   } = {}
 ): Record<string, unknown> {
   const today = new Date().toISOString().slice(0, 10);
-  const name = options.name ?? `${doc.name} [migrated ${today}]`;
+  const name = options.name ?? (options.keepOriginalName ? doc.name : `${doc.name} [migrated ${today}]`);
   const templateType = options.templateType ?? 'layout';
 
   // Build pages array — nodes & settings on pages[0] only
@@ -177,6 +181,15 @@ export function documentToPayload(
     payload.contentTemplateCode = options.contentTemplateCode;
   }
 
+  // Include taxonomy if provided (passthrough all fields with dot notation)
+  if (options.taxonomy) {
+    for (const [key, value] of Object.entries(options.taxonomy)) {
+      if (value !== undefined) {
+        payload[`taxonomy.${key}`] = value;
+      }
+    }
+  }
+
   return payload;
 }
 
@@ -189,7 +202,11 @@ export async function createContentTemplate(
   options: {
     name?: string;
     templateType?: string;
-    contentTemplateCode?: string;    fontIds?: string[];  } = {}
+    contentTemplateCode?: string;
+    fontIds?: string[];
+    taxonomy?: Record<string, unknown>;
+    keepOriginalName?: boolean;
+  } = {}
 ): Promise<CreateContentTemplateResult> {
   const payload = documentToPayload(doc, options);
   const url = `${config.baseUrl}/v2/contenttemplate/`;
@@ -221,11 +238,12 @@ export async function createContentTemplate(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// HIDE TEMPLATE (mark as hidden/disabled)
+// DEACTIVATE TEMPLATE (mark as inactive)
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Mark a content template as hidden (disabled) via PATCH.
+ * Mark a content template as inactive (disabled) via PATCH.
+ * Sets `active: false` on the root of the document.
  * This effectively "disables" the old template after migration.
  */
 export async function hideTemplate(templateId: string, config: ProlibuClientConfig): Promise<void> {
@@ -239,9 +257,9 @@ export async function hideTemplate(templateId: string, config: ProlibuClientConf
         Authorization: config.authToken,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ hidden: true }),
+      body: JSON.stringify({ active: false }),
     },
-    `hiding template ${templateId}`
+    `deactivating template ${templateId}`
   );
 }
 
@@ -435,6 +453,8 @@ export async function updateContentTemplate(
     templateType?: string;
     contentTemplateCode?: string;
     fontIds?: string[];
+    taxonomy?: Record<string, unknown>;
+    keepOriginalName?: boolean;
   } = {}
 ): Promise<UpdateContentTemplateResult> {
   const payload = documentToPayload(doc, options);
@@ -475,9 +495,11 @@ export interface UpsertResult {
 
 /**
  * Create or update a content template based on whether it already exists.
- * Uses contentTemplateCode with "-migrated" suffix for lookup and storage.
+ * Uses contentTemplateCode for lookup and storage:
+ * - With keepOriginalName=false (default): adds "-migrated" suffix to avoid collision
+ * - With keepOriginalName=true: uses original code (may overwrite if same account)
  * This ensures:
- * 1. No collision with original templates in same-account migrations
+ * 1. No collision with original templates in same-account migrations (when using suffix)
  * 2. Consistent code for detecting existing migrated templates (UPDATE vs CREATE)
  */
 export async function upsertContentTemplate(
@@ -491,21 +513,27 @@ export async function upsertContentTemplate(
     sourceCode?: string;
     /** Font document IDs to include in embeddedFonts */
     fontIds?: string[];
+    /** Taxonomy for language/category classification (passthrough) */
+    taxonomy?: Record<string, unknown>;
+    /** Keep original code without "-migrated" suffix */
+    keepOriginalName?: boolean;
   } = {}
 ): Promise<UpsertResult> {
   const sourceCode = options.sourceCode ?? doc.name;
-  // Always use "-migrated" suffix so we can find it on subsequent runs
-  const migratedCode = `${sourceCode}-migrated`;
+  // Use original code if keepOriginalName, otherwise add "-migrated" suffix
+  const targetCode = options.keepOriginalName ? sourceCode : `${sourceCode}-migrated`;
 
-  // Check if a template with the migrated code already exists
-  const existingId = existingMap.get(migratedCode);
+  // Check if a template with the target code already exists
+  const existingId = existingMap.get(targetCode);
 
-  // Options for create/update - include the migrated code and fontIds
+  // Options for create/update - include the target code and fontIds
   const payloadOptions = {
     name: options.name,
     templateType: options.templateType,
-    contentTemplateCode: migratedCode,
+    contentTemplateCode: targetCode,
     fontIds: options.fontIds,
+    taxonomy: options.taxonomy,
+    keepOriginalName: options.keepOriginalName,
   };
 
   if (existingId) {

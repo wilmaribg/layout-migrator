@@ -37,6 +37,8 @@ export interface MigrationResult {
   stats: MigrationStats;
   /** Font sync result (if font sync was enabled) */
   fontSync?: FontSyncResult;
+  /** Taxonomy from source template (passthrough) */
+  taxonomy?: Record<string, unknown>;
 }
 
 export interface MigrationOptions {
@@ -77,10 +79,11 @@ export async function migrate(id: string, options: MigrationOptions): Promise<Mi
   // 3. Run transformation with font map
   const result = migrateFromLayout(layout, options.pageSize, fontSyncResult?.fontMap);
 
-  // 4. Attach font sync result
+  // 4. Attach font sync result and taxonomy from source layout
   return {
     ...result,
     fontSync: fontSyncResult,
+    taxonomy: layout.taxonomy,
   };
 }
 
@@ -239,5 +242,6 @@ export function migrateFromLayout(
     validation,
     warnings,
     stats,
+    taxonomy: layout.taxonomy,
   };
 }

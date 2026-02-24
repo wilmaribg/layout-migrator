@@ -5,7 +5,7 @@
  */
 
 import { resolve } from 'node:path';
-import { listAvailableDomains } from '../config/envLoader.js';
+import { listAvailableDomains, loadDomainEnv } from '../config/envLoader.js';
 import { select, confirm, textInput } from './prompts.js';
 
 export interface InteractiveAnswers {
@@ -24,6 +24,10 @@ export interface InteractiveAnswers {
   concurrency?: number;
   /** Hide (disable) old templates in source after migration */
   hideOldTemplates?: boolean;
+  /** Specific template IDs to migrate (accepts _id or contentTemplateCode) */
+  ids?: string[];
+  /** Keep original name without -migrated suffix */
+  keepOriginalName?: boolean;
 }
 
 /**
@@ -63,10 +67,12 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
     }
   }
 
-  // ── 2. For migrate-all: type filter and concurrency ────────
+  // ── 2. For migrate-all: type filter and options ────────────
   let templateType = 'layout';
   let concurrency = 5;
   let dryRun = false;
+  let ids: string[] | undefined;
+  let keepOriginalName = false;
 
   if (isMigrateAll) {
     templateType = await select({
@@ -79,35 +85,87 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
       ],
     });
 
-    const concurrencyStr = await textInput({
-      message: 'Concurrencia (migraciones en paralelo)',
-      defaultValue: '5',
+    // ── 2b. Ask if migrating all or specific IDs ─────────────
+    const migrateMode = await select({
+      message: '¿Qué templates migrar?',
+      choices: [
+        { label: 'Todos los templates', value: 'all' },
+        { label: 'Solo IDs específicos', value: 'specific' },
+      ],
     });
-    concurrency = parseInt(concurrencyStr, 10) || 5;
 
+    if (migrateMode === 'specific') {
+      // Try to load MIGRATION_IDS from env
+      let envIds: string[] | undefined;
+      try {
+        const env = await loadDomainEnv(domain);
+        envIds = env.MIGRATION_IDS?.split(',').map(id => id.trim()).filter(Boolean);
+      } catch {
+        // Env file may not exist yet, that's ok
+      }
+
+      if (envIds && envIds.length > 0) {
+        console.log(`  📋 Encontrados ${envIds.length} IDs en MIGRATION_IDS del .env`);
+        const useEnvIds = await confirm({
+          message: `¿Usar estos IDs? (${envIds.slice(0, 3).join(', ')}${envIds.length > 3 ? '...' : ''})`,
+          defaultValue: true,
+        });
+        if (useEnvIds) {
+          ids = envIds;
+        }
+      }
+
+      if (!ids) {
+        const idsInput = await textInput({
+          message: 'IDs separados por coma (_id o contentTemplateCode)',
+          placeholder: 'template-1, template-2',
+          required: true,
+        });
+        ids = idsInput.split(',').map(id => id.trim()).filter(Boolean);
+      }
+    }
+
+    // ── 2c. Ask about keeping original names ─────────────────
+    keepOriginalName = await confirm({
+      message: '¿Mantener nombre original? (sin sufijos "-migrated" ni "[migrated YYYY-MM-DD]")',
+      defaultValue: false,
+    });
+
+    // ⚠️ Warning: keepOriginalName + same account = will OVERWRITE originals
+    if (keepOriginalName && toDomain === domain) {
+      console.log('\n  ⚠️  ¡ATENCIÓN! Vas a SOBRESCRIBIR los templates originales.');
+      console.log('      (origen = destino + mantener nombre original)\n');
+      const confirmOverwrite = await confirm({
+        message: '¿Estás seguro de que quieres sobrescribir los templates originales?',
+        defaultValue: false,
+      });
+      if (!confirmOverwrite) {
+        console.log('\n  Cancelado.\n');
+        process.exit(0);
+      }
+    }
+
+    // ── 2d. Ask about hiding old templates (always ask) ──────
+    const hideOldTemplates = await confirm({
+      message: '¿Inhabilitar templates viejos en origen después de migrar? (los marca como ocultos)',
+      defaultValue: false,
+    });
+
+    // ── 2e. Ask about dry run ────────────────────────────────
     dryRun = await confirm({
       message: '¿Ejecutar primero en modo prueba? (muestra qué se migraría sin hacer cambios)',
       defaultValue: true,
     });
-
-    // Ask if the user wants to hide old templates after migration
-    let hideOldTemplates = false;
-    if (!dryRun) {
-      hideOldTemplates = await confirm({
-        message:
-          '¿Inhabilitar templates viejos en origen después de migrar? (los marca como ocultos)',
-        defaultValue: false,
-      });
-    }
 
     // ── Summary for migrate-all ──────────────────────────────
     console.log('\n  ─────────────────────────────');
     console.log(`  Origen:       ${domain}`);
     console.log(`  Destino:      ${toDomain}`);
     console.log(`  Tipo:         ${templateType}`);
-    console.log(`  Concurrencia: ${concurrency}`);
-    console.log(`  Modo prueba:  ${dryRun ? 'Sí' : 'No'}`);
+    console.log(`  IDs:          ${ids ? ids.length + ' específicos' : 'Todos'}`);
+    console.log(`  Nombre orig:  ${keepOriginalName ? 'Sí' : 'No (con sufijo)'}`);
     console.log(`  Inhabilitar:  ${hideOldTemplates ? 'Sí' : 'No'}`);
+    console.log(`  Modo prueba:  ${dryRun ? 'Sí' : 'No'}`);
     console.log('  ─────────────────────────────\n');
 
     const proceed = await confirm({ message: '¿Continuar?', defaultValue: true });
@@ -127,6 +185,8 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
       migrateAll: true,
       concurrency,
       hideOldTemplates,
+      ids,
+      keepOriginalName,
     };
   }
 

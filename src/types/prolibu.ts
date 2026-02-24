@@ -43,6 +43,12 @@ export const ProlibuEmbeddedFontSchema = z.union([
   z.string(),
 ]);
 
+/**
+ * Taxonomy schema for language and category classification.
+ * Passthrough: accepts any structure from the API without validation.
+ */
+export const ProlibuTaxonomySchema = z.record(z.unknown()).optional();
+
 export const ProlibuLayoutSchema = z.object({
   _id: z.string(),
   contentTemplateName: z.string(),
@@ -54,6 +60,7 @@ export const ProlibuLayoutSchema = z.object({
   embeddedFonts: z.array(ProlibuEmbeddedFontSchema).optional(),
   assets: z.array(z.unknown()).optional(),
   figma: z.object({ pagePreviews: z.array(z.unknown()) }).optional(),
+  taxonomy: ProlibuTaxonomySchema,
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -72,4 +79,5 @@ export interface ProlibuNode {
 
 export type ProlibuPage = z.infer<typeof ProlibuPageSchema>;
 export type ProlibuEmbeddedFont = z.infer<typeof ProlibuEmbeddedFontSchema>;
+export type ProlibuTaxonomy = z.infer<typeof ProlibuTaxonomySchema>;
 export type ProlibuLayout = z.infer<typeof ProlibuLayoutSchema>;

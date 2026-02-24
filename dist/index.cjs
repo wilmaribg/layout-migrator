@@ -8055,6 +8055,7 @@ var ProlibuEmbeddedFontSchema = external_exports.union([
   // Solo ID string (no poblado)
   external_exports.string()
 ]);
+var ProlibuTaxonomySchema = external_exports.record(external_exports.unknown()).optional();
 var ProlibuLayoutSchema = external_exports.object({
   _id: external_exports.string(),
   contentTemplateName: external_exports.string(),
@@ -8065,7 +8066,8 @@ var ProlibuLayoutSchema = external_exports.object({
   secondaryFont: external_exports.string().optional(),
   embeddedFonts: external_exports.array(ProlibuEmbeddedFontSchema).optional(),
   assets: external_exports.array(external_exports.unknown()).optional(),
-  figma: external_exports.object({ pagePreviews: external_exports.array(external_exports.unknown()) }).optional()
+  figma: external_exports.object({ pagePreviews: external_exports.array(external_exports.unknown()) }).optional(),
+  taxonomy: ProlibuTaxonomySchema
 });
 
 // src/client/prolibuClient.ts
@@ -8113,7 +8115,7 @@ async function fetchContentTemplate(id, config) {
 }
 function documentToPayload(doc, options = {}) {
   const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const name = options.name ?? `${doc.name} [migrated ${today}]`;
+  const name = options.name ?? (options.keepOriginalName ? doc.name : `${doc.name} [migrated ${today}]`);
   const templateType = options.templateType ?? "layout";
   const pages = doc.pages.map((page, index) => {
     const base = {
@@ -8153,6 +8155,13 @@ function documentToPayload(doc, options = {}) {
   if (options.contentTemplateCode) {
     payload.contentTemplateCode = options.contentTemplateCode;
   }
+  if (options.taxonomy) {
+    for (const [key, value] of Object.entries(options.taxonomy)) {
+      if (value !== void 0) {
+        payload[`taxonomy.${key}`] = value;
+      }
+    }
+  }
   return payload;
 }
 async function createContentTemplate(doc, config, options = {}) {
@@ -8190,9 +8199,9 @@ async function hideTemplate(templateId, config) {
         Authorization: config.authToken,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ hidden: true })
+      body: JSON.stringify({ active: false })
     },
-    `hiding template ${templateId}`
+    `deactivating template ${templateId}`
   );
 }
 function buildGoogleFontsLinkTags(googleFonts) {
@@ -8323,13 +8332,15 @@ async function updateContentTemplate(templateId, doc, config, options = {}) {
 }
 async function upsertContentTemplate(doc, config, existingMap, options = {}) {
   const sourceCode = options.sourceCode ?? doc.name;
-  const migratedCode = `${sourceCode}-migrated`;
-  const existingId = existingMap.get(migratedCode);
+  const targetCode = options.keepOriginalName ? sourceCode : `${sourceCode}-migrated`;
+  const existingId = existingMap.get(targetCode);
   const payloadOptions = {
     name: options.name,
     templateType: options.templateType,
-    contentTemplateCode: migratedCode,
-    fontIds: options.fontIds
+    contentTemplateCode: targetCode,
+    fontIds: options.fontIds,
+    taxonomy: options.taxonomy,
+    keepOriginalName: options.keepOriginalName
   };
   if (existingId) {
     const result = await updateContentTemplate(existingId, doc, config, payloadOptions);
@@ -9695,7 +9706,8 @@ async function migrate(id, options) {
   const result = migrateFromLayout(layout, options.pageSize, fontSyncResult?.fontMap);
   return {
     ...result,
-    fontSync: fontSyncResult
+    fontSync: fontSyncResult,
+    taxonomy: layout.taxonomy
   };
 }
 function migrateFromLayout(layout, pageSize = PAGE_SIZES.fixed, fontMap) {
@@ -9792,7 +9804,8 @@ function migrateFromLayout(layout, pageSize = PAGE_SIZES.fixed, fontMap) {
     document,
     validation,
     warnings,
-    stats
+    stats,
+    taxonomy: layout.taxonomy
   };
 }
 
@@ -10029,6 +10042,8 @@ async function runInteractivePrompt() {
   let templateType = "layout";
   let concurrency = 5;
   let dryRun = false;
+  let ids;
+  let keepOriginalName = false;
   if (isMigrateAll) {
     templateType = await select({
       message: "\xBFQu\xE9 tipos de templates migrar?",
@@ -10039,29 +10054,71 @@ async function runInteractivePrompt() {
         { label: "Solo snippets", value: "snippet" }
       ]
     });
-    const concurrencyStr = await textInput({
-      message: "Concurrencia (migraciones en paralelo)",
-      defaultValue: "5"
+    const migrateMode = await select({
+      message: "\xBFQu\xE9 templates migrar?",
+      choices: [
+        { label: "Todos los templates", value: "all" },
+        { label: "Solo IDs espec\xEDficos", value: "specific" }
+      ]
     });
-    concurrency = parseInt(concurrencyStr, 10) || 5;
+    if (migrateMode === "specific") {
+      let envIds;
+      try {
+        const env = await loadDomainEnv(domain);
+        envIds = env.MIGRATION_IDS?.split(",").map((id) => id.trim()).filter(Boolean);
+      } catch {
+      }
+      if (envIds && envIds.length > 0) {
+        console.log(`  \u{1F4CB} Encontrados ${envIds.length} IDs en MIGRATION_IDS del .env`);
+        const useEnvIds = await confirm({
+          message: `\xBFUsar estos IDs? (${envIds.slice(0, 3).join(", ")}${envIds.length > 3 ? "..." : ""})`,
+          defaultValue: true
+        });
+        if (useEnvIds) {
+          ids = envIds;
+        }
+      }
+      if (!ids) {
+        const idsInput = await textInput({
+          message: "IDs separados por coma (_id o contentTemplateCode)",
+          placeholder: "template-1, template-2",
+          required: true
+        });
+        ids = idsInput.split(",").map((id) => id.trim()).filter(Boolean);
+      }
+    }
+    keepOriginalName = await confirm({
+      message: '\xBFMantener nombre original? (sin sufijos "-migrated" ni "[migrated YYYY-MM-DD]")',
+      defaultValue: false
+    });
+    if (keepOriginalName && toDomain === domain) {
+      console.log("\n  \u26A0\uFE0F  \xA1ATENCI\xD3N! Vas a SOBRESCRIBIR los templates originales.");
+      console.log("      (origen = destino + mantener nombre original)\n");
+      const confirmOverwrite = await confirm({
+        message: "\xBFEst\xE1s seguro de que quieres sobrescribir los templates originales?",
+        defaultValue: false
+      });
+      if (!confirmOverwrite) {
+        console.log("\n  Cancelado.\n");
+        process.exit(0);
+      }
+    }
+    const hideOldTemplates = await confirm({
+      message: "\xBFInhabilitar templates viejos en origen despu\xE9s de migrar? (los marca como ocultos)",
+      defaultValue: false
+    });
     dryRun = await confirm({
       message: "\xBFEjecutar primero en modo prueba? (muestra qu\xE9 se migrar\xEDa sin hacer cambios)",
       defaultValue: true
     });
-    let hideOldTemplates = false;
-    if (!dryRun) {
-      hideOldTemplates = await confirm({
-        message: "\xBFInhabilitar templates viejos en origen despu\xE9s de migrar? (los marca como ocultos)",
-        defaultValue: false
-      });
-    }
     console.log("\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
     console.log(`  Origen:       ${domain}`);
     console.log(`  Destino:      ${toDomain}`);
     console.log(`  Tipo:         ${templateType}`);
-    console.log(`  Concurrencia: ${concurrency}`);
-    console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
+    console.log(`  IDs:          ${ids ? ids.length + " espec\xEDficos" : "Todos"}`);
+    console.log(`  Nombre orig:  ${keepOriginalName ? "S\xED" : "No (con sufijo)"}`);
     console.log(`  Inhabilitar:  ${hideOldTemplates ? "S\xED" : "No"}`);
+    console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
     console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
     const proceed2 = await confirm({ message: "\xBFContinuar?", defaultValue: true });
     if (!proceed2) {
@@ -10079,7 +10136,9 @@ async function runInteractivePrompt() {
       saveJson: false,
       migrateAll: true,
       concurrency,
-      hideOldTemplates
+      hideOldTemplates,
+      ids,
+      keepOriginalName
     };
   }
   const templateId = await textInput({
@@ -10139,7 +10198,7 @@ var program2 = new Command();
 program2.name("layout-migrator").description("Migrate Prolibu v1 content templates to Design Studio v2 format").version("0.1.0");
 program2.command("migrate").description("Migrate a content template by ID and upload it as a new template (same account)").option("--id <code>", "contentTemplateCode of the template", "main-layout").option("--domain <domain>", "Load config from .<domain>.env file (e.g. --domain redrenault)").option("--api-url <url>", "Prolibu API base URL (overrides env file)").option("--token <token>", "Auth token (overrides env file)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally (optional path, default: ./output/)").option("--json-only", "Only save JSON locally, do NOT upload to Prolibu", false).option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleMigrate);
 program2.command("transfer").description("Migrate a template from one Prolibu account to another").option("--id <code>", "contentTemplateCode from the source account", "main-layout").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally").option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleTransfer);
-program2.command("migrate-all").description("Migrate ALL templates from one Prolibu account to another (batch with upsert)").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--type <type>", "Filter by template type: layout | content | snippet | all", "all").option("--concurrency <n>", "Number of parallel migrations (default: 5)", "5").option("--dry-run", "List what would be migrated, no actual changes", false).option("--hide-old", "Hide (disable) old templates in source after migration", false).option("--verbose", "Show detailed progress and warnings", false).action(handleMigrateAll);
+program2.command("migrate-all").description("Migrate ALL templates from one Prolibu account to another (batch with upsert)").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--type <type>", "Filter by template type: layout | content | snippet | all", "all").option("--concurrency <n>", "Number of parallel migrations (default: 5)", "5").option("--dry-run", "List what would be migrated, no actual changes", false).option("--hide-old", "Hide (disable) old templates in source after migration", false).option("--verbose", "Show detailed progress and warnings", false).option("--ids <codes>", "Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)").option("--keep-original-name", "Keep original template name and code (no -migrated suffix)", false).action(handleMigrateAll);
 program2.command("run").description("Interactive migration \u2014 prompts for domain, template ID, and options").action(runInteractiveFlow);
 program2.action(runInteractiveFlow);
 async function runInteractiveFlow() {
@@ -10152,7 +10211,9 @@ async function runInteractiveFlow() {
       concurrency: String(answers.concurrency ?? 5),
       dryRun: answers.dryRun,
       verbose: answers.verbose,
-      hideOld: answers.hideOldTemplates ?? false
+      hideOld: answers.hideOldTemplates ?? false,
+      ids: answers.ids,
+      keepOriginalName: answers.keepOriginalName
     });
     return;
   }
@@ -10394,18 +10455,53 @@ async function handleMigrateAll(opts) {
   const templateType = opts.type === "all" ? void 0 : opts.type;
   const sourceConfig = await resolveConfigFromDomain(opts.from, "Source");
   const destConfig = await resolveConfigFromDomain(opts.to, "Destination");
+  let resolvedIds = opts.ids;
+  if (!resolvedIds) {
+    try {
+      const sourceEnv = await loadDomainEnv(opts.from);
+      const envIds = sourceEnv.MIGRATION_IDS?.split(",").map((s) => s.trim()).filter(Boolean);
+      if (envIds && envIds.length > 0) {
+        resolvedIds = envIds;
+        console.log(`   \u{1F4CB} Using ${envIds.length} IDs from MIGRATION_IDS in .${opts.from}.env`);
+      }
+    } catch {
+    }
+  }
   console.log(`
 \u{1F504} Migrate All: ${opts.from} \u2192 ${opts.to}`);
   console.log(`   Type filter: ${opts.type}`);
   console.log(`   Concurrency: ${concurrency}`);
+  if (opts.keepOriginalName) {
+    console.log(`   Keep name:   Yes (no -migrated suffix)`);
+  }
   if (opts.hideOld) {
     console.log(`   Hide old:    Yes (will hide source templates after migration)`);
+  }
+  if (opts.keepOriginalName && opts.from === opts.to) {
+    console.log(`
+   \u26A0\uFE0F  WARNING: Same account + keep-original-name will OVERWRITE original templates!`);
   }
   console.log(`
 \u{1F4E5} Fetching templates from source (${opts.from})...`);
   const sourceTemplates = await fetchExistingTemplates(sourceConfig, templateType);
   console.log(`   Found ${sourceTemplates.length} templates`);
-  if (sourceTemplates.length === 0) {
+  let templatesToMigrate = sourceTemplates;
+  const idsToFilter = resolvedIds ? typeof resolvedIds === "string" ? resolvedIds.split(",").map((s) => s.trim()) : resolvedIds : [];
+  if (idsToFilter.length > 0) {
+    const idSet = new Set(idsToFilter);
+    templatesToMigrate = sourceTemplates.filter(
+      (t) => idSet.has(t._id) || idSet.has(t.contentTemplateCode ?? "")
+    );
+    const foundIds = new Set(
+      templatesToMigrate.flatMap((t) => [t._id, t.contentTemplateCode].filter(Boolean))
+    );
+    const notFound = idsToFilter.filter((id) => !foundIds.has(id));
+    if (notFound.length > 0) {
+      console.log(`   \u26A0\uFE0F  IDs no encontrados: ${notFound.join(", ")}`);
+    }
+    console.log(`   Filtered to ${templatesToMigrate.length} templates by IDs`);
+  }
+  if (templatesToMigrate.length === 0) {
     console.log("   Nothing to migrate.");
     return;
   }
@@ -10418,16 +10514,16 @@ async function handleMigrateAll(opts) {
     console.log("\n\u{1F50D} Dry run \u2014 showing what would be migrated:\n");
     let toCreate = 0;
     let toUpdate = 0;
-    for (const t of sourceTemplates) {
+    for (const t of templatesToMigrate) {
       const code = t.contentTemplateCode ?? t.contentTemplateName;
-      const migratedCode = `${code}-migrated`;
-      const exists = destMap.has(migratedCode);
+      const targetCode = opts.keepOriginalName ? code : `${code}-migrated`;
+      const exists = destMap.has(targetCode);
       const action = exists ? "UPDATE" : "CREATE";
       if (exists) toUpdate++;
       else toCreate++;
       if (opts.verbose) {
         console.log(
-          `   [${action}] ${t.contentTemplateName} \u2192 ${migratedCode} (${t.templateType})`
+          `   [${action}] ${t.contentTemplateName} \u2192 ${targetCode} (${t.templateType})`
         );
       }
     }
@@ -10435,7 +10531,7 @@ async function handleMigrateAll(opts) {
 \u{1F4CA} Summary:`);
     console.log(`   Would CREATE: ${toCreate}`);
     console.log(`   Would UPDATE: ${toUpdate}`);
-    console.log(`   Total: ${sourceTemplates.length}`);
+    console.log(`   Total: ${templatesToMigrate.length}`);
     return;
   }
   console.log(`
@@ -10448,12 +10544,12 @@ async function handleMigrateAll(opts) {
     /** IDs of source templates that were successfully migrated (for hiding) */
     migratedSourceIds: []
   };
-  const queue = [...sourceTemplates];
+  const queue = [...templatesToMigrate];
   let completed = 0;
   const total = queue.length;
   const processTemplate = async (template) => {
     const code = template.contentTemplateCode ?? template.contentTemplateName;
-    const migratedCode = `${code}-migrated`;
+    const targetCode = opts.keepOriginalName ? code : `${code}-migrated`;
     try {
       const fontApiConfig = {
         baseUrl: destConfig.baseUrl,
@@ -10470,12 +10566,14 @@ async function handleMigrateAll(opts) {
         {
           templateType: template.templateType,
           sourceCode: code,
-          fontIds: migrationResult.fontSync?.fontIds
+          fontIds: migrationResult.fontSync?.fontIds,
+          taxonomy: migrationResult.taxonomy,
+          keepOriginalName: opts.keepOriginalName
         }
       );
       if (upsertResult.action === "created") {
         results.created++;
-        destMap.set(migratedCode, upsertResult._id);
+        destMap.set(targetCode, upsertResult._id);
       } else {
         results.updated++;
       }
@@ -10483,7 +10581,7 @@ async function handleMigrateAll(opts) {
       completed++;
       const pct = Math.round(completed / total * 100);
       console.log(
-        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} \u2192 ${migratedCode}`
+        `   [${pct}%] ${upsertResult.action.toUpperCase()}: ${template.contentTemplateName} \u2192 ${targetCode}`
       );
     } catch (error) {
       results.failed++;
