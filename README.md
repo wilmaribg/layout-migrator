@@ -34,6 +34,48 @@ pnpm install
 pnpm --filter layout-migrator build
 ```
 
+### Ejecutar el CLI
+
+Hay varias formas de ejecutar el CLI:
+
+```bash
+# Opción 1: Usando pnpm (desarrollo)
+pnpm --filter layout-migrator start
+
+# Opción 2: Ejecutar el binario compilado directamente
+node apps/layoutMigrator/dist/index.cjs
+
+# Opción 3: Desde el directorio del proyecto
+cd apps/layoutMigrator
+node dist/index.cjs
+
+# Opción 4: Usando tsx (desarrollo sin compilar)
+cd apps/layoutMigrator
+pnpm start
+```
+
+### Instalación global (opcional)
+
+Para usar el comando `layout-migrator` desde cualquier lugar:
+
+```bash
+# Desde el directorio apps/layoutMigrator
+cd apps/layoutMigrator
+pnpm link --global
+
+# Ahora puedes usar:
+layout-migrator --help
+layout-migrator migrate --domain miempresa --id main-layout
+layout-migrator transfer --from origen --to destino --id main-layout
+layout-migrator migrate-all --from origen --to destino
+```
+
+Para desinstalar el link global:
+
+```bash
+pnpm unlink --global layout-migrator
+```
+
 ---
 
 ## Configuración
@@ -60,9 +102,9 @@ El CLI utiliza archivos `.{dominio}.env` para almacenar las credenciales de cada
 
 | Dominio        | Archivo .env          |
 |----------------|----------------------|
-| redrenault     | `.redrenault.env`    |
-| honda          | `.honda.env`         |
-| dev11          | `.dev11.env`         |
+| miempresa      | `.miempresa.env`     |
+| demo           | `.demo.env`          |
+| dev            | `.dev.env`           |
 | staging        | `.stg.env`           |
 
 #### Variable opcional: MIGRATION_IDS
@@ -81,16 +123,23 @@ MIGRATION_IDS=template-1, template-2, main-layout
 
 ## Modos de Uso
 
+> **Nota sobre los comandos:** En los ejemplos usamos `pnpm --filter layout-migrator start`, pero puedes reemplazarlo por:
+> - `layout-migrator` (si instalaste globalmente)
+> - `node dist/index.cjs` (desde el directorio layoutMigrator)
+
 ### Modo Interactivo
 
 La forma más sencilla de usar el CLI. No requiere memorizar opciones.
 
 ```bash
-# Ejecutar en modo interactivo
+# Usando pnpm
 pnpm --filter layout-migrator start
 
-# O equivalente
-pnpm --filter layout-migrator start run
+# Usando el binario global
+layout-migrator
+
+# Usando node directamente
+node apps/layoutMigrator/dist/index.cjs
 ```
 
 #### Flujo interactivo paso a paso
@@ -114,8 +163,8 @@ El asistente te guiará preguntando:
 
 ```
   ─────────────────────────────
-  Origen:      redrenault
-  Destino:     honda
+  Origen:      cuenta-origen
+  Destino:     cuenta-destino
   Código:      main-layout
   Nombre:      <original> [migrated 2026-02-24]
   ─────────────────────────────
@@ -130,7 +179,14 @@ El asistente te guiará preguntando:
 Migra un template dentro de la **misma cuenta**. Crea una copia con el sufijo `[migrated]`.
 
 ```bash
-pnpm --filter layout-migrator start migrate --domain redrenault --id main-layout
+# Usando pnpm
+pnpm --filter layout-migrator start migrate --domain miempresa --id main-layout
+
+# Usando el binario global
+layout-migrator migrate --domain miempresa --id main-layout
+
+# Usando node directamente (desde el directorio layoutMigrator)
+node dist/index.cjs migrate --domain miempresa --id main-layout
 ```
 
 #### Opciones específicas
@@ -154,28 +210,28 @@ pnpm --filter layout-migrator start migrate --domain redrenault --id main-layout
 ```bash
 # Migrar con nombre personalizado
 pnpm --filter layout-migrator start migrate \
-  --domain redrenault \
+  --domain miempresa \
   --id propuesta-2024 \
   --name "Propuesta Nueva v2"
 
 # Solo validar (dry run)
 pnpm --filter layout-migrator start migrate \
-  --domain honda \
+  --domain demo \
   --id main-layout \
   --dry-run \
   --verbose
 
 # Guardar JSON localmente sin subir
 pnpm --filter layout-migrator start migrate \
-  --domain dev11 \
+  --domain dev \
   --id template-demo \
   --json-only \
   --save-json ./backups/
 
 # Usando URL y token directamente (sin archivo .env)
 pnpm --filter layout-migrator start migrate \
-  --api-url https://cliente.prolibu.com \
-  --token bf991800d5ed76f154a49c53a3fd5a6cc164d55f2f79... \
+  --api-url https://miempresa.prolibu.com \
+  --token abc123def456... \
   --id main-layout
 ```
 
@@ -186,10 +242,17 @@ pnpm --filter layout-migrator start migrate \
 Migra un template **de una cuenta a otra**. Útil para mover plantillas entre entornos o clientes.
 
 ```bash
+# Usando pnpm
 pnpm --filter layout-migrator start transfer \
-  --from redrenault \
-  --to honda \
+  --from origen \
+  --to destino \
   --id main-layout
+
+# Usando el binario global
+layout-migrator transfer --from origen --to destino --id main-layout
+
+# Usando node directamente
+node dist/index.cjs transfer --from origen --to destino --id main-layout
 ```
 
 #### Opciones específicas
@@ -211,21 +274,21 @@ pnpm --filter layout-migrator start transfer \
 ```bash
 # Transferir de desarrollo a producción
 pnpm --filter layout-migrator start transfer \
-  --from dev11 \
+  --from dev \
   --to produccion \
   --id template-aprobado
 
 # Transferir y guardar backup JSON
 pnpm --filter layout-migrator start transfer \
   --from staging \
-  --to honda \
+  --to destino \
   --id propuesta-base \
   --save-json ./output/transfer-backup.json
 
 # Validar transferencia sin ejecutar
 pnpm --filter layout-migrator start transfer \
-  --from redrenault \
-  --to oxohote \
+  --from origen \
+  --to destino \
   --id main-layout \
   --dry-run \
   --verbose
@@ -238,9 +301,16 @@ pnpm --filter layout-migrator start transfer \
 Migra **TODOS** los templates de una cuenta a otra en lote. Utiliza lógica de **upsert** (crear si no existe, actualizar si ya existe).
 
 ```bash
+# Usando pnpm
 pnpm --filter layout-migrator start migrate-all \
-  --from redrenault \
-  --to honda
+  --from origen \
+  --to destino
+
+# Usando el binario global
+layout-migrator migrate-all --from origen --to destino
+
+# Usando node directamente
+node dist/index.cjs migrate-all --from origen --to destino
 ```
 
 #### Opciones específicas
@@ -262,13 +332,13 @@ pnpm --filter layout-migrator start migrate-all \
 ```bash
 # Migrar todos los layouts de una cuenta a otra
 pnpm --filter layout-migrator start migrate-all \
-  --from redrenault \
-  --to honda \
+  --from origen \
+  --to destino \
   --type layout
 
 # Migrar IDs específicos
 pnpm --filter layout-migrator start migrate-all \
-  --from dev11 \
+  --from dev \
   --to produccion \
   --ids "template-1, template-2, main-layout"
 
@@ -280,21 +350,21 @@ pnpm --filter layout-migrator start migrate-all \
 
 # Preview: ver qué se migraría (dry run)
 pnpm --filter layout-migrator start migrate-all \
-  --from redrenault \
-  --to honda \
+  --from origen \
+  --to destino \
   --dry-run \
   --verbose
 
 # Migrar y ocultar los originales
 pnpm --filter layout-migrator start migrate-all \
-  --from dev11 \
+  --from dev \
   --to staging \
   --hide-old
 
 # Alta concurrencia para migraciones grandes
 pnpm --filter layout-migrator start migrate-all \
-  --from redrenault \
-  --to honda \
+  --from origen \
+  --to destino \
   --concurrency 10
 ```
 
@@ -308,8 +378,8 @@ pnpm --filter layout-migrator start migrate-all \
   Transferir de una cuenta a otra
 ❯ Transferir TODOS los templates de una cuenta a otra
 
-Dominio origen: redrenault
-Dominio destino: honda
+Dominio origen: cuenta-origen
+Dominio destino: cuenta-destino
 
 ¿Qué tipos de templates migrar?
 ❯ Todos los tipos
@@ -331,8 +401,8 @@ Dominio destino: honda
 (S/n): S
 
   ─────────────────────────────
-  Origen:       redrenault
-  Destino:      honda
+  Origen:       cuenta-origen
+  Destino:      cuenta-destino
   Tipo:         all
   IDs:          Todos
   Nombre orig:  No (con sufijo)
@@ -374,14 +444,14 @@ El modo `--dry-run` es útil para:
 ```bash
 # Ver estadísticas sin hacer cambios
 pnpm --filter layout-migrator start migrate-all \
-  --from redrenault \
-  --to honda \
+  --from origen \
+  --to destino \
   --dry-run
 
 # Salida:
-# 📥 Fetching templates from source (redrenault)...
+# 📥 Fetching templates from source (origen)...
 #    Found 15 templates
-# 📥 Fetching existing templates from destination (honda)...
+# 📥 Fetching existing templates from destination (destino)...
 #    Found 3 existing templates in destination
 #
 # 🔍 Dry run — showing what would be migrated:
