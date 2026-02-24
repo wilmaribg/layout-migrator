@@ -36,22 +36,17 @@ pnpm --filter layout-migrator build
 
 ### Ejecutar el CLI
 
-Hay varias formas de ejecutar el CLI:
+Todos los comandos se ejecutan **desde el directorio raíz del proyecto**:
 
 ```bash
-# Opción 1: Usando pnpm (desarrollo)
+# Opción 1: Usando pnpm (recomendado para desarrollo)
 pnpm --filter layout-migrator start
 
 # Opción 2: Ejecutar el binario compilado directamente
 node apps/layoutMigrator/dist/index.cjs
 
-# Opción 3: Desde el directorio del proyecto
-cd apps/layoutMigrator
-node dist/index.cjs
-
-# Opción 4: Usando tsx (desarrollo sin compilar)
-cd apps/layoutMigrator
-pnpm start
+# Opción 3: Usando tsx (desarrollo sin compilar)
+pnpm --filter layout-migrator dev
 ```
 
 ### Instalación global (opcional)
@@ -59,11 +54,11 @@ pnpm start
 Para usar el comando `layout-migrator` desde cualquier lugar:
 
 ```bash
-# Desde el directorio apps/layoutMigrator
+# Desde el directorio raíz del proyecto
 cd apps/layoutMigrator
 pnpm link --global
 
-# Ahora puedes usar:
+# Ahora puedes usar desde cualquier ubicación:
 layout-migrator --help
 layout-migrator migrate --domain miempresa --id main-layout
 layout-migrator transfer --from origen --to destino --id main-layout
@@ -125,20 +120,20 @@ MIGRATION_IDS=template-1, template-2, main-layout
 
 > **Nota sobre los comandos:** En los ejemplos usamos `pnpm --filter layout-migrator start`, pero puedes reemplazarlo por:
 > - `layout-migrator` (si instalaste globalmente)
-> - `node dist/index.cjs` (desde el directorio layoutMigrator)
+> - `node apps/layoutMigrator/dist/index.cjs` (desde el root del proyecto)
 
 ### Modo Interactivo
 
 La forma más sencilla de usar el CLI. No requiere memorizar opciones.
 
 ```bash
-# Usando pnpm
+# Usando pnpm (recomendado)
 pnpm --filter layout-migrator start
 
 # Usando el binario global
 layout-migrator
 
-# Usando node directamente
+# Usando node directamente (desde el root del proyecto)
 node apps/layoutMigrator/dist/index.cjs
 ```
 
@@ -179,14 +174,14 @@ El asistente te guiará preguntando:
 Migra un template dentro de la **misma cuenta**. Crea una copia con el sufijo `[migrated]`.
 
 ```bash
-# Usando pnpm
+# Usando pnpm (recomendado)
 pnpm --filter layout-migrator start migrate --domain miempresa --id main-layout
 
 # Usando el binario global
 layout-migrator migrate --domain miempresa --id main-layout
 
-# Usando node directamente (desde el directorio layoutMigrator)
-node dist/index.cjs migrate --domain miempresa --id main-layout
+# Usando node directamente (desde el root del proyecto)
+node apps/layoutMigrator/dist/index.cjs migrate --domain miempresa --id main-layout
 ```
 
 #### Opciones específicas
@@ -242,7 +237,7 @@ pnpm --filter layout-migrator start migrate \
 Migra un template **de una cuenta a otra**. Útil para mover plantillas entre entornos o clientes.
 
 ```bash
-# Usando pnpm
+# Usando pnpm (recomendado)
 pnpm --filter layout-migrator start transfer \
   --from origen \
   --to destino \
@@ -251,8 +246,8 @@ pnpm --filter layout-migrator start transfer \
 # Usando el binario global
 layout-migrator transfer --from origen --to destino --id main-layout
 
-# Usando node directamente
-node dist/index.cjs transfer --from origen --to destino --id main-layout
+# Usando node directamente (desde el root del proyecto)
+node apps/layoutMigrator/dist/index.cjs transfer --from origen --to destino --id main-layout
 ```
 
 #### Opciones específicas
@@ -301,7 +296,7 @@ pnpm --filter layout-migrator start transfer \
 Migra **TODOS** los templates de una cuenta a otra en lote. Utiliza lógica de **upsert** (crear si no existe, actualizar si ya existe).
 
 ```bash
-# Usando pnpm
+# Usando pnpm (recomendado)
 pnpm --filter layout-migrator start migrate-all \
   --from origen \
   --to destino
@@ -309,8 +304,8 @@ pnpm --filter layout-migrator start migrate-all \
 # Usando el binario global
 layout-migrator migrate-all --from origen --to destino
 
-# Usando node directamente
-node dist/index.cjs migrate-all --from origen --to destino
+# Usando node directamente (desde el root del proyecto)
+node apps/layoutMigrator/dist/index.cjs migrate-all --from origen --to destino
 ```
 
 #### Opciones específicas
