@@ -3459,31 +3459,12 @@ var contentPresets = {
         height: 95
       },
       {
-        type: "TEXT",
-        content: {
-          type: "doc",
-          content: [
-            {
-              type: "paragraph",
-              attrs: {
-                htmlContent: "<p>Dear {{ contact.fullName }},</p><p></p><p>Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.</p>"
-              },
-              content: [
-                {
-                  type: "text",
-                  text: "Dear {{ contact.fullName }},\n\nThank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs."
-                }
-              ]
-            }
-          ]
+        type: "COMPONENT",
+        pluginId: "com-cover-letter-body",
+        componentName: "Cover Letter Body",
+        props: {
+          hideClosing: false
         },
-        tiptapState: '{"type":"doc","content":[{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null},"content":[{"type":"text","text":"Dear {{ contact.fullName }},"}]},{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null}},{"type":"paragraph","attrs":{"textAlign":null,"lineHeight":null},"content":[{"type":"text","text":"Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs."}]}]}',
-        htmlContent: "<p>Dear {{ contact.fullName }},</p><p></p><p>Thank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.</p>",
-        characters: "Dear {{ contact.fullName }},\n\nThank you for the opportunity to present this proposal. We are excited to work with {{ contact.companyName }} and believe our solution will meet your needs.",
-        fontSize: 14,
-        fontWeight: 400,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
         x: 80,
         y: 175,
         width: 630,
@@ -3639,7 +3620,7 @@ var contentPresets = {
         pluginId: "com-payment-plan",
         componentName: "Payment Plan",
         props: {
-          titleTemplate: "Payment Plan",
+          titleTemplate: "paymentPlan.title",
           showTitleAndDescription: true,
           showPaymentsExpanded: false,
           paymentPlanColumns: [
@@ -3686,32 +3667,18 @@ var contentPresets = {
     pageType: "content",
     children: [
       {
-        type: "TEXT",
-        characters: "How was your experience?",
-        fontSize: 24,
-        fontWeight: 700,
-        textAlign: "center",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
-        x: 196,
-        y: 100,
-        width: 400,
-        height: 40
-      },
-      {
-        type: "TEXT",
-        characters: "We value your feedback. Please rate your experience with us.",
-        fontSize: 14,
-        fontWeight: 400,
-        textAlign: "center",
-        fills: [{ type: "solid", color: { r: 100, g: 100, b: 100, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        // pluginId: 'com-satisfaction-body',
+        componentName: "Satisfaction Body",
+        props: {},
         x: 146,
-        y: 150,
+        y: 100,
         width: 500,
-        height: 30
+        height: 80
       },
       {
         type: "COMPONENT",
-        pluginId: "com-rate",
+        // pluginId: 'com-rate',
         componentName: "Rating",
         props: {
           aparience: { label: "Rating Stars", value: "Rating Stars" },
@@ -3737,12 +3704,17 @@ var contentPresets = {
     autoGrow: true,
     children: [
       {
-        type: "TEXT",
-        characters: "Frequently Asked Questions",
-        fontSize: 24,
-        fontWeight: 700,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.accordion.title",
+          fontSize: 24,
+          fontWeight: 700,
+          textAlign: "left",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 40,
         y: 40,
         width: 400,
@@ -3756,13 +3728,17 @@ var contentPresets = {
           rows: [
             {
               title: "What is included?",
+              titleI18nKey: "preset.accordion.faq1.title",
               description: "This section describes what is included in the package.",
+              descriptionI18nKey: "preset.accordion.faq1.description",
               expanded: true,
               blockExpanded: false
             },
             {
               title: "Terms & Conditions",
+              titleI18nKey: "preset.accordion.faq2.title",
               description: "Important terms and conditions for this proposal.",
+              descriptionI18nKey: "preset.accordion.faq2.description",
               expanded: false,
               blockExpanded: false
             }
@@ -3782,7 +3758,7 @@ var contentPresets = {
     height: 612,
     minHeight: 612,
     orientation: "landscape",
-    autoGrow: true,
+    autoGrow: false,
     backgroundColor: { r: 255, g: 255, b: 255, a: 1 },
     pageType: "content",
     children: [
@@ -3796,12 +3772,17 @@ var contentPresets = {
         height: 612
       },
       {
-        type: "TEXT",
-        characters: "Attachments",
-        fontSize: 20,
-        fontWeight: 700,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.attachments.title",
+          fontSize: 20,
+          fontWeight: 700,
+          textAlign: "left",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 60,
         y: 52,
         width: 300,
@@ -3852,36 +3833,51 @@ var contentPresets = {
         height: 38
       },
       {
-        type: "TEXT",
-        characters: "Agreement Signature.",
-        fontSize: 32,
-        fontWeight: 700,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.agreement.title",
+          fontSize: 32,
+          fontWeight: 700,
+          textAlign: "left",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 148,
         y: 128,
         width: 381,
         height: 50
       },
       {
-        type: "TEXT",
-        characters: "\u2014 {{{ contact.firstName }}}, this proposal can be approved instantly by adding your electronic signature.",
-        fontSize: 18,
-        fontWeight: 600,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.agreement.subtitle",
+          fontSize: 18,
+          fontWeight: 600,
+          textAlign: "left",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 94,
         y: 192,
         width: 612,
         height: 57
       },
       {
-        type: "TEXT",
-        characters: "Before approving this proposal, you will have the opportunity to carefully review all details of the contract. By adding your electronic signature, you not only sign the necessary documents, but also formally confirm your full acceptance of this commercial agreement.",
-        fontSize: 13,
-        fontWeight: 400,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.agreement.body",
+          fontSize: 13,
+          fontWeight: 400,
+          textAlign: "left",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 94,
         y: 264,
         width: 606,
@@ -3930,12 +3926,17 @@ var contentPresets = {
     pageType: "content",
     children: [
       {
-        type: "TEXT",
-        characters: "Proposal Approval",
-        fontSize: 24,
-        fontWeight: 700,
-        textAlign: "center",
-        fills: [{ type: "solid", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "preset.approval.title",
+          fontSize: 24,
+          fontWeight: 700,
+          textAlign: "center",
+          color: "#000000",
+          lineHeight: 1.3
+        },
         x: 196,
         y: 40,
         width: 400,
@@ -8025,7 +8026,7 @@ var NEVER = INVALID;
 
 // src/types/prolibu.ts
 var ProlibuNodeSchema = external_exports.object({
-  name: external_exports.string(),
+  name: external_exports.string().nullable().transform((v) => v ?? "unnamed"),
   type: external_exports.string(),
   styles: external_exports.record(external_exports.union([external_exports.string(), external_exports.number()])).optional(),
   content: external_exports.string().optional(),
