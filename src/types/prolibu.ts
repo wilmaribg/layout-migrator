@@ -10,7 +10,10 @@ import { z } from 'zod';
 // ═══════════════════════════════════════════════════════════════
 
 export const ProlibuNodeSchema: z.ZodType<ProlibuNode> = z.object({
-  name: z.string().nullable().transform(v => v ?? 'unnamed'),
+  name: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? 'unnamed'),
   type: z.string(),
   styles: z.record(z.union([z.string(), z.number()])).optional(),
   content: z.string().optional(),
