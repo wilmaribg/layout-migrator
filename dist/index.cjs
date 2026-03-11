@@ -8908,7 +8908,7 @@ function transformPage(frame, index, pageSize = PAGE_SIZES.fixed) {
     backgroundImage = convertWildcards(styles.backgroundImage);
   }
   const sourceWidth = styles.width;
-  const sourceHeight = styles.height;
+  const sourceHeight = styles.heightAuto && styles.minHeight ? styles.minHeight : styles.height;
   const orientation = sourceWidth >= sourceHeight ? "landscape" : "portrait";
   const effectivePageSize = orientation === "portrait" ? { width: pageSize.height, height: pageSize.width, preset: pageSize.preset } : pageSize;
   const frameWidth = effectivePageSize.width;

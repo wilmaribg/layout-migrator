@@ -89,18 +89,23 @@ export function transformPage(
   }
 
   // Detect orientation from source frame dimensions
+  // When height is auto, use minHeight for orientation detection
   const sourceWidth = styles.width;
-  const sourceHeight = styles.height;
-  const orientation: 'portrait' | 'landscape' = sourceWidth >= sourceHeight ? 'landscape' : 'portrait';
+  const sourceHeight = styles.heightAuto && styles.minHeight ? styles.minHeight : styles.height;
+  const orientation: 'portrait' | 'landscape' =
+    sourceWidth >= sourceHeight ? 'landscape' : 'portrait';
 
   // Adjust page size based on detected orientation
-  const effectivePageSize: PageSize = orientation === 'portrait'
-    ? { width: pageSize.height, height: pageSize.width, preset: pageSize.preset }
-    : pageSize;
+  const effectivePageSize: PageSize =
+    orientation === 'portrait'
+      ? { width: pageSize.height, height: pageSize.width, preset: pageSize.preset }
+      : pageSize;
 
   // Frame dimensions
   const frameWidth = effectivePageSize.width;
-  const frameHeight = isAutoGrow ? (styles.minHeight ?? effectivePageSize.height) : effectivePageSize.height;
+  const frameHeight = isAutoGrow
+    ? (styles.minHeight ?? effectivePageSize.height)
+    : effectivePageSize.height;
 
   // Create root frame
   const rootFrame: FrameNode = createFrameNode({
