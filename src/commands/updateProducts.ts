@@ -89,9 +89,7 @@ export async function handleUpdateProducts(opts: UpdateProductsOptions): Promise
   const authToken = envConfig.PROLIBU_AUTH_TOKEN;
 
   if (!apiUrl || !authToken) {
-    console.error(
-      `❌ Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`
-    );
+    console.error(`❌ Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`);
     process.exit(1);
   }
 
@@ -112,11 +110,18 @@ export async function handleUpdateProducts(opts: UpdateProductsOptions): Promise
 
   // 3. Parse optional --ids filter
   const filterIds = ids
-    ? new Set(ids.split(',').map((s) => s.trim()).filter(Boolean))
+    ? new Set(
+        ids
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
     : undefined;
 
   if (filterIds) {
-    console.log(`   🔍 Filtering to ${filterIds.size} specified code(s): ${[...filterIds].join(', ')}`);
+    console.log(
+      `   🔍 Filtering to ${filterIds.size} specified code(s): ${[...filterIds].join(', ')}`
+    );
   }
 
   // 4. Build snippet ID map from existing templates
@@ -140,7 +145,9 @@ export async function handleUpdateProducts(opts: UpdateProductsOptions): Promise
   }
 
   // 5. Show the map
-  console.log(`\n🗺️  Snippet ID map (${snippetIdMap.size} pair${snippetIdMap.size > 1 ? 's' : ''}):`);
+  console.log(
+    `\n🗺️  Snippet ID map (${snippetIdMap.size} pair${snippetIdMap.size > 1 ? 's' : ''}):`
+  );
   for (const [oldId, newId] of snippetIdMap) {
     // Find the codes for display
     const oldSnippet = snippets.find((s) => s._id === oldId);
