@@ -3,8 +3,8 @@
  * and creates new ones after migration.
  */
 
-import { ProlibuLayoutSchema } from '../types/prolibu.js';
-import type { ProlibuLayout } from '../types/prolibu.js';
+import { ProlibuLayoutSchema, ProlibuProductSchema } from '../types/prolibu.js';
+import type { ProlibuLayout, ProlibuProduct } from '../types/prolibu.js';
 import type { Document } from '@design-studio/schema';
 
 /** Default request timeout in ms */
@@ -128,7 +128,8 @@ export function documentToPayload(
   } = {}
 ): Record<string, unknown> {
   const today = new Date().toISOString().slice(0, 10);
-  const name = options.name ?? (options.keepOriginalName ? doc.name : `${doc.name} [migrated ${today}]`);
+  const name =
+    options.name ?? (options.keepOriginalName ? doc.name : `${doc.name} [migrated ${today}]`);
   const templateType = options.templateType ?? 'layout';
 
   // Build pages array — nodes & settings on pages[0] only
@@ -553,4 +554,89 @@ export async function upsertContentTemplate(
       contentTemplateName: result.contentTemplateName,
     };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT API (for snippet replacement in products)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Find all products that have a specific snippet ID in their `snippets` array.
+ * Uses Prolibu's xquery parameter with $in operator.
+ */
+export async function findProductsBySnippet(
+  snippetId: string,
+  config: ProlibuClientConfig
+): Promise<ProlibuProduct[]> {
+  const allProducts: ProlibuProduct[] = [];
+  let page = 1;
+  const limit = 500;
+
+  while (true) {
+    const xquery = JSON.stringify({ snippets: { $in: [snippetId] } });
+    const url = new URL('/v2/product/', config.baseUrl);
+    url.searchParams.set('xquery', xquery);
+    url.searchParams.set('select', '_id productName productCode snippets active');
+    url.searchParams.set('limit', String(limit));
+    url.searchParams.set('page', String(page));
+
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: config.authToken,
+          'Content-Type': 'application/json',
+        },
+      },
+      `finding products with snippet ${snippetId} (page ${page})`
+    );
+
+    const json = await safeParseJson(response, `products list page ${page}`);
+    const data = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || [];
+
+    if (data.length === 0) break;
+
+    for (const item of data) {
+      const parsed = ProlibuProductSchema.safeParse(item);
+      if (parsed.success) {
+        allProducts.push(parsed.data);
+      } else {
+        const itemId = (item as Record<string, unknown>)?._id ?? 'unknown';
+        console.warn(
+          `   ⚠️  Skipped product ${itemId}: invalid structure (${parsed.error.message})`
+        );
+      }
+    }
+
+    if (data.length < limit) break; // Last page
+    page++;
+  }
+
+  return allProducts;
+}
+
+/**
+ * Update a product's snippets array via PATCH.
+ * Replaces the old snippet ID with the new one.
+ */
+export async function updateProductSnippets(
+  productId: string,
+  snippets: string[],
+  config: ProlibuClientConfig
+): Promise<void> {
+  const url = `${config.baseUrl}/v2/product/${productId}`;
+
+  await fetchWithRetry(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: config.authToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ snippets }),
+    },
+    `updating snippets for product ${productId}`
+  );
 }

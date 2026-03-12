@@ -23,6 +23,8 @@ import {
 } from './client/prolibuClient.js';
 import { loadDomainEnv } from './config/envLoader.js';
 import { runInteractivePrompt } from './cli/interactive.js';
+import { runSnippetReplacementPhase } from './pipeline/snippetReplacer.js';
+import { handleUpdateProducts } from './commands/updateProducts.js';
 
 const program = new Command();
 
@@ -73,9 +75,31 @@ program
   .option('--dry-run', 'List what would be migrated, no actual changes', false)
   .option('--hide-old', 'Hide (disable) old templates in source after migration', false)
   .option('--verbose', 'Show detailed progress and warnings', false)
-  .option('--ids <codes>', 'Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)')
-  .option('--keep-original-name', 'Keep original template name and code (no -migrated suffix)', false)
+  .option(
+    '--ids <codes>',
+    'Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)'
+  )
+  .option(
+    '--keep-original-name',
+    'Keep original template name and code (no -migrated suffix)',
+    false
+  )
+  .option(
+    '--update-products',
+    'Update products that reference migrated snippets with new snippet IDs',
+    false
+  )
   .action(handleMigrateAll);
+
+// ── Update products (standalone snippet→product replacement) ──
+program
+  .command('update-products')
+  .description('Update products that reference old snippet IDs with their migrated counterparts')
+  .requiredOption('--domain <domain>', 'Account domain (reads from .<domain>.env)')
+  .option('--dry-run', 'Preview changes without applying them', false)
+  .option('--verbose', 'Show detailed progress', false)
+  .option('--ids <codes>', 'Comma-separated snippet codes to process (default: all)')
+  .action(handleUpdateProducts);
 
 // ── Interactive command (no flags needed) ──────────────────
 program
@@ -89,6 +113,17 @@ program.action(runInteractiveFlow);
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
 
+  // Update-products standalone mode
+  if (answers.updateProductsOnly) {
+    await handleUpdateProducts({
+      domain: answers.domain,
+      dryRun: answers.dryRun,
+      verbose: answers.verbose,
+      ids: answers.ids?.join(','),
+    });
+    return;
+  }
+
   // Migrate-all mode (batch transfer)
   if (answers.migrateAll && answers.toDomain) {
     await handleMigrateAll({
@@ -101,6 +136,7 @@ async function runInteractiveFlow() {
       hideOld: answers.hideOldTemplates ?? false,
       ids: answers.ids,
       keepOriginalName: answers.keepOriginalName,
+      updateProducts: answers.updateProducts ?? false,
     });
     return;
   }
@@ -452,6 +488,7 @@ async function handleMigrateAll(opts: {
   hideOld: boolean;
   ids?: string | string[];
   keepOriginalName?: boolean;
+  updateProducts?: boolean;
 }) {
   const concurrency = parseInt(opts.concurrency, 10) || 5;
   const templateType =
@@ -465,7 +502,9 @@ async function handleMigrateAll(opts: {
   if (!resolvedIds) {
     try {
       const sourceEnv = await loadDomainEnv(opts.from);
-      const envIds = sourceEnv.MIGRATION_IDS?.split(',').map(s => s.trim()).filter(Boolean);
+      const envIds = sourceEnv.MIGRATION_IDS?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       if (envIds && envIds.length > 0) {
         resolvedIds = envIds;
         console.log(`   📋 Using ${envIds.length} IDs from MIGRATION_IDS in .${opts.from}.env`);
@@ -484,10 +523,15 @@ async function handleMigrateAll(opts: {
   if (opts.hideOld) {
     console.log(`   Hide old:    Yes (will hide source templates after migration)`);
   }
+  if (opts.updateProducts) {
+    console.log(`   Update products: Yes (will replace old snippet IDs in products)`);
+  }
 
   // ⚠️ Warning: keepOriginalName + same account = will OVERWRITE originals
   if (opts.keepOriginalName && opts.from === opts.to) {
-    console.log(`\n   ⚠️  WARNING: Same account + keep-original-name will OVERWRITE original templates!`);
+    console.log(
+      `\n   ⚠️  WARNING: Same account + keep-original-name will OVERWRITE original templates!`
+    );
   }
 
   // 1. Fetch ALL templates from source
@@ -498,20 +542,22 @@ async function handleMigrateAll(opts: {
   // 1b. Filter by specific IDs if provided (accepts _id or contentTemplateCode)
   let templatesToMigrate = sourceTemplates;
   const idsToFilter: string[] = resolvedIds
-    ? (typeof resolvedIds === 'string' ? resolvedIds.split(',').map(s => s.trim()) : resolvedIds)
+    ? typeof resolvedIds === 'string'
+      ? resolvedIds.split(',').map((s) => s.trim())
+      : resolvedIds
     : [];
 
   if (idsToFilter.length > 0) {
     const idSet = new Set(idsToFilter);
-    templatesToMigrate = sourceTemplates.filter(t =>
-      idSet.has(t._id) || idSet.has(t.contentTemplateCode ?? '')
+    templatesToMigrate = sourceTemplates.filter(
+      (t) => idSet.has(t._id) || idSet.has(t.contentTemplateCode ?? '')
     );
 
     // Warning: IDs not found
     const foundIds = new Set(
-      templatesToMigrate.flatMap(t => [t._id, t.contentTemplateCode].filter(Boolean) as string[])
+      templatesToMigrate.flatMap((t) => [t._id, t.contentTemplateCode].filter(Boolean) as string[])
     );
-    const notFound = idsToFilter.filter(id => !foundIds.has(id));
+    const notFound = idsToFilter.filter((id) => !foundIds.has(id));
     if (notFound.length > 0) {
       console.log(`   ⚠️  IDs no encontrados: ${notFound.join(', ')}`);
     }
@@ -546,9 +592,7 @@ async function handleMigrateAll(opts: {
       else toCreate++;
 
       if (opts.verbose) {
-        console.log(
-          `   [${action}] ${t.contentTemplateName} → ${targetCode} (${t.templateType})`
-        );
+        console.log(`   [${action}] ${t.contentTemplateName} → ${targetCode} (${t.templateType})`);
       }
     }
 
@@ -556,6 +600,23 @@ async function handleMigrateAll(opts: {
     console.log(`   Would CREATE: ${toCreate}`);
     console.log(`   Would UPDATE: ${toUpdate}`);
     console.log(`   Total: ${templatesToMigrate.length}`);
+
+    // Dry-run snippet replacement preview (always show when there are snippets)
+    const snippetTemplates = templatesToMigrate.filter((t) => t.templateType === 'snippet');
+    if (snippetTemplates.length > 0) {
+      if (!opts.updateProducts) {
+        console.log(
+          `\n   ℹ️  Found ${snippetTemplates.length} snippet templates. Use --update-products to replace snippet IDs in products.`
+        );
+      }
+      // Build a temporary map using source _id as both old and new (just to query products)
+      const dryRunMap = new Map<string, string>();
+      for (const t of snippetTemplates) {
+        dryRunMap.set(t._id, t._id); // placeholder — actual new ID unknown in dry run
+      }
+      await runSnippetReplacementPhase(dryRunMap, destConfig, true, opts.verbose);
+    }
+
     return;
   }
 
@@ -570,6 +631,9 @@ async function handleMigrateAll(opts: {
     /** IDs of source templates that were successfully migrated (for hiding) */
     migratedSourceIds: [] as string[],
   };
+
+  /** Map of old snippet ID → new snippet ID (built during migration) */
+  const snippetIdMap = new Map<string, string>();
 
   const queue = [...templatesToMigrate];
   let completed = 0;
@@ -612,6 +676,11 @@ async function handleMigrateAll(opts: {
         destMap.set(targetCode, upsertResult._id);
       } else {
         results.updated++;
+      }
+
+      // Track old → new snippet ID mapping for product replacement
+      if (template.templateType === 'snippet') {
+        snippetIdMap.set(template._id, upsertResult._id);
       }
 
       // Track successfully migrated source template ID (for hiding later)
@@ -666,7 +735,19 @@ async function handleMigrateAll(opts: {
     }
   }
 
-  // 6. Hide old templates if requested
+  // 6. Snippet → Product replacement phase
+  if (opts.updateProducts && snippetIdMap.size > 0) {
+    if (opts.from !== opts.to) {
+      console.log(
+        `\n⚠️  Warning: --update-products with cross-account migration (${opts.from} → ${opts.to}).`
+      );
+      console.log(`   Products in destination may not reference source snippet IDs.`);
+      console.log(`   This is typically useful only for same-account migrations.`);
+    }
+    await runSnippetReplacementPhase(snippetIdMap, destConfig, false, opts.verbose);
+  }
+
+  // 7. Hide old templates if requested
   if (opts.hideOld && results.migratedSourceIds.length > 0) {
     console.log(`\n🙈 Hiding ${results.migratedSourceIds.length} old templates in source...`);
 

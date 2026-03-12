@@ -28,6 +28,10 @@ export interface InteractiveAnswers {
   ids?: string[];
   /** Keep original name without -migrated suffix */
   keepOriginalName?: boolean;
+  /** Update products that reference migrated snippets with new snippet IDs */
+  updateProducts?: boolean;
+  /** Standalone update-products mode (no migration) */
+  updateProductsOnly?: boolean;
 }
 
 /**
@@ -46,10 +50,15 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
         label: 'Transferir TODOS los templates de una cuenta a otra',
         value: 'migrate-all' as const,
       },
+      {
+        label: 'Actualizar productos (reemplazar snippet IDs ya migrados)',
+        value: 'update-products' as const,
+      },
     ],
   });
   const isTransfer = mode === 'transfer';
   const isMigrateAll = mode === 'migrate-all';
+  const isUpdateProducts = mode === 'update-products';
 
   // ── 1. Source domain selection ─────────────────────────────
   const projectRoot = resolve(import.meta.dirname ?? process.cwd(), '..', '..');
@@ -57,6 +66,11 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
 
   const sourceLabel = isTransfer || isMigrateAll ? 'Dominio origen' : 'Dominio';
   const domain = await pickDomain(domains, sourceLabel);
+
+  // ── update-products: standalone flow ───────────────────────
+  if (isUpdateProducts) {
+    return await runUpdateProductsPrompt(domain);
+  }
 
   // ── 1b. Destination domain (transfer or migrate-all) ───────
   let toDomain: string | undefined;
@@ -99,7 +113,9 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
       let envIds: string[] | undefined;
       try {
         const env = await loadDomainEnv(domain);
-        envIds = env.MIGRATION_IDS?.split(',').map(id => id.trim()).filter(Boolean);
+        envIds = env.MIGRATION_IDS?.split(',')
+          .map((id) => id.trim())
+          .filter(Boolean);
       } catch {
         // Env file may not exist yet, that's ok
       }
@@ -121,7 +137,10 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
           placeholder: 'template-1, template-2',
           required: true,
         });
-        ids = idsInput.split(',').map(id => id.trim()).filter(Boolean);
+        ids = idsInput
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean);
       }
     }
 
@@ -145,13 +164,32 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
       }
     }
 
-    // ── 2d. Ask about hiding old templates (always ask) ──────
-    const hideOldTemplates = await confirm({
-      message: '¿Inhabilitar templates viejos en origen después de migrar? (los marca como ocultos)',
-      defaultValue: false,
-    });
+    // ── 2d. Ask about hiding old templates ───────────────
+    // Skip when overwriting in-place (same account + keep name) — there's no "old" template to hide
+    let hideOldTemplates = false;
+    if (!(keepOriginalName && toDomain === domain)) {
+      hideOldTemplates = await confirm({
+        message:
+          '¿Inhabilitar templates viejos en origen después de migrar? (los marca como ocultos)',
+        defaultValue: false,
+      });
+    }
 
-    // ── 2e. Ask about dry run ────────────────────────────────
+    // ── 2e. Ask about updating products (when snippets are involved) ──
+    // Skip when overwriting in-place — snippet IDs don't change
+    let updateProducts = false;
+    if (
+      (templateType === 'all' || templateType === 'snippet') &&
+      !(keepOriginalName && toDomain === domain)
+    ) {
+      updateProducts = await confirm({
+        message:
+          '¿Actualizar productos que usan los snippets migrados? (reemplaza IDs viejos por nuevos)',
+        defaultValue: true,
+      });
+    }
+
+    // ── 2f. Ask about dry run ────────────────────────────────
     dryRun = await confirm({
       message: '¿Ejecutar primero en modo prueba? (muestra qué se migraría sin hacer cambios)',
       defaultValue: true,
@@ -165,6 +203,9 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
     console.log(`  IDs:          ${ids ? ids.length + ' específicos' : 'Todos'}`);
     console.log(`  Nombre orig:  ${keepOriginalName ? 'Sí' : 'No (con sufijo)'}`);
     console.log(`  Inhabilitar:  ${hideOldTemplates ? 'Sí' : 'No'}`);
+    if (templateType === 'all' || templateType === 'snippet') {
+      console.log(`  Upd products: ${updateProducts ? 'Sí' : 'No'}`);
+    }
     console.log(`  Modo prueba:  ${dryRun ? 'Sí' : 'No'}`);
     console.log('  ─────────────────────────────\n');
 
@@ -187,6 +228,7 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
       hideOldTemplates,
       ids,
       keepOriginalName,
+      updateProducts,
     };
   }
 
@@ -226,6 +268,63 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
     verbose: true,
     dryRun: false,
     saveJson: false,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPDATE-PRODUCTS INTERACTIVE FLOW
+// ═══════════════════════════════════════════════════════════════
+
+async function runUpdateProductsPrompt(domain: string): Promise<InteractiveAnswers> {
+  // Ask for optional IDs filter
+  const filterMode = await select({
+    message: '¿Qué snippets procesar?',
+    choices: [
+      { label: 'Todos los snippets con par [code] → [code]-migrated', value: 'all' },
+      { label: 'Solo IDs específicos', value: 'specific' },
+    ],
+  });
+
+  let ids: string[] | undefined;
+  if (filterMode === 'specific') {
+    const idsInput = await textInput({
+      message: 'Códigos de snippets separados por coma (contentTemplateCode original)',
+      placeholder: 'snippet-1, snippet-2',
+      required: true,
+    });
+    ids = idsInput
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  const dryRun = await confirm({
+    message: '¿Ejecutar primero en modo prueba? (muestra qué productos se actualizarían)',
+    defaultValue: true,
+  });
+
+  // Summary
+  console.log('\n  ─────────────────────────────');
+  console.log(`  Cuenta:       ${domain}`);
+  console.log(`  Snippets:     ${ids ? ids.join(', ') : 'Todos'}`);
+  console.log(`  Modo prueba:  ${dryRun ? 'Sí' : 'No'}`);
+  console.log('  ─────────────────────────────\n');
+
+  const proceed = await confirm({ message: '¿Continuar?', defaultValue: true });
+  if (!proceed) {
+    console.log('\n  Cancelado.\n');
+    process.exit(0);
+  }
+
+  return {
+    domain,
+    templateId: '',
+    templateType: 'snippet',
+    verbose: true,
+    dryRun,
+    saveJson: false,
+    updateProductsOnly: true,
+    ids,
   };
 }
 

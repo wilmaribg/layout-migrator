@@ -67,6 +67,18 @@ export const ProlibuLayoutSchema = z.object({
 });
 
 // ═══════════════════════════════════════════════════════════════
+// PRODUCT SCHEMAS
+// ═══════════════════════════════════════════════════════════════
+
+export const ProlibuProductSchema = z.object({
+  _id: z.string(),
+  productName: z.string().optional(),
+  productCode: z.string().optional(),
+  snippets: z.array(z.string()),
+  active: z.boolean().optional(),
+});
+
+// ═══════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════
 
@@ -84,3 +96,17 @@ export type ProlibuPage = z.infer<typeof ProlibuPageSchema>;
 export type ProlibuEmbeddedFont = z.infer<typeof ProlibuEmbeddedFontSchema>;
 export type ProlibuTaxonomy = z.infer<typeof ProlibuTaxonomySchema>;
 export type ProlibuLayout = z.infer<typeof ProlibuLayoutSchema>;
+export type ProlibuProduct = z.infer<typeof ProlibuProductSchema>;
+
+// ═══════════════════════════════════════════════════════════════
+// SNIPPET REPLACEMENT TYPES
+// ═══════════════════════════════════════════════════════════════
+
+export interface SnippetReplacementResult {
+  oldSnippetId: string;
+  newSnippetId: string;
+  productsUpdated: number;
+  productIds: string[];
+  failedProducts: Array<{ productId: string; error: string }>;
+  skipped: boolean;
+}

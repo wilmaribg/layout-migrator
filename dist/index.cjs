@@ -8070,6 +8070,13 @@ var ProlibuLayoutSchema = external_exports.object({
   figma: external_exports.object({ pagePreviews: external_exports.array(external_exports.unknown()) }).optional(),
   taxonomy: ProlibuTaxonomySchema
 });
+var ProlibuProductSchema = external_exports.object({
+  _id: external_exports.string(),
+  productName: external_exports.string().optional(),
+  productCode: external_exports.string().optional(),
+  snippets: external_exports.array(external_exports.string()),
+  active: external_exports.boolean().optional()
+});
 
 // src/client/prolibuClient.ts
 var REQUEST_TIMEOUT = 3e4;
@@ -8358,6 +8365,62 @@ async function upsertContentTemplate(doc, config, existingMap, options = {}) {
       contentTemplateName: result.contentTemplateName
     };
   }
+}
+async function findProductsBySnippet(snippetId, config) {
+  const allProducts = [];
+  let page = 1;
+  const limit = 500;
+  while (true) {
+    const xquery = JSON.stringify({ snippets: { $in: [snippetId] } });
+    const url = new URL("/v2/product/", config.baseUrl);
+    url.searchParams.set("xquery", xquery);
+    url.searchParams.set("select", "_id productName productCode snippets active");
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("page", String(page));
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: "GET",
+        headers: {
+          Authorization: config.authToken,
+          "Content-Type": "application/json"
+        }
+      },
+      `finding products with snippet ${snippetId} (page ${page})`
+    );
+    const json = await safeParseJson(response, `products list page ${page}`);
+    const data = Array.isArray(json) ? json : json.data || [];
+    if (data.length === 0) break;
+    for (const item of data) {
+      const parsed = ProlibuProductSchema.safeParse(item);
+      if (parsed.success) {
+        allProducts.push(parsed.data);
+      } else {
+        const itemId = item?._id ?? "unknown";
+        console.warn(
+          `   \u26A0\uFE0F  Skipped product ${itemId}: invalid structure (${parsed.error.message})`
+        );
+      }
+    }
+    if (data.length < limit) break;
+    page++;
+  }
+  return allProducts;
+}
+async function updateProductSnippets(productId, snippets, config) {
+  const url = `${config.baseUrl}/v2/product/${productId}`;
+  await fetchWithRetry(
+    url,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: config.authToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ snippets })
+    },
+    `updating snippets for product ${productId}`
+  );
 }
 
 // src/assets/fontResolver.ts
@@ -10024,15 +10087,23 @@ async function runInteractivePrompt() {
       {
         label: "Transferir TODOS los templates de una cuenta a otra",
         value: "migrate-all"
+      },
+      {
+        label: "Actualizar productos (reemplazar snippet IDs ya migrados)",
+        value: "update-products"
       }
     ]
   });
   const isTransfer = mode === "transfer";
   const isMigrateAll = mode === "migrate-all";
+  const isUpdateProducts = mode === "update-products";
   const projectRoot = (0, import_node_path2.resolve)(import_meta2.dirname ?? process.cwd(), "..", "..");
   const domains = listAvailableDomains(projectRoot);
   const sourceLabel = isTransfer || isMigrateAll ? "Dominio origen" : "Dominio";
   const domain = await pickDomain(domains, sourceLabel);
+  if (isUpdateProducts) {
+    return await runUpdateProductsPrompt(domain);
+  }
   let toDomain;
   if (isTransfer || isMigrateAll) {
     toDomain = await pickDomain(domains, "Dominio destino");
@@ -10104,10 +10175,20 @@ async function runInteractivePrompt() {
         process.exit(0);
       }
     }
-    const hideOldTemplates = await confirm({
-      message: "\xBFInhabilitar templates viejos en origen despu\xE9s de migrar? (los marca como ocultos)",
-      defaultValue: false
-    });
+    let hideOldTemplates = false;
+    if (!(keepOriginalName && toDomain === domain)) {
+      hideOldTemplates = await confirm({
+        message: "\xBFInhabilitar templates viejos en origen despu\xE9s de migrar? (los marca como ocultos)",
+        defaultValue: false
+      });
+    }
+    let updateProducts = false;
+    if ((templateType === "all" || templateType === "snippet") && !(keepOriginalName && toDomain === domain)) {
+      updateProducts = await confirm({
+        message: "\xBFActualizar productos que usan los snippets migrados? (reemplaza IDs viejos por nuevos)",
+        defaultValue: true
+      });
+    }
     dryRun = await confirm({
       message: "\xBFEjecutar primero en modo prueba? (muestra qu\xE9 se migrar\xEDa sin hacer cambios)",
       defaultValue: true
@@ -10119,6 +10200,9 @@ async function runInteractivePrompt() {
     console.log(`  IDs:          ${ids ? ids.length + " espec\xEDficos" : "Todos"}`);
     console.log(`  Nombre orig:  ${keepOriginalName ? "S\xED" : "No (con sufijo)"}`);
     console.log(`  Inhabilitar:  ${hideOldTemplates ? "S\xED" : "No"}`);
+    if (templateType === "all" || templateType === "snippet") {
+      console.log(`  Upd products: ${updateProducts ? "S\xED" : "No"}`);
+    }
     console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
     console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
     const proceed2 = await confirm({ message: "\xBFContinuar?", defaultValue: true });
@@ -10139,7 +10223,8 @@ async function runInteractivePrompt() {
       concurrency,
       hideOldTemplates,
       ids,
-      keepOriginalName
+      keepOriginalName,
+      updateProducts
     };
   }
   const templateId = await textInput({
@@ -10173,6 +10258,48 @@ async function runInteractivePrompt() {
     saveJson: false
   };
 }
+async function runUpdateProductsPrompt(domain) {
+  const filterMode = await select({
+    message: "\xBFQu\xE9 snippets procesar?",
+    choices: [
+      { label: "Todos los snippets con par [code] \u2192 [code]-migrated", value: "all" },
+      { label: "Solo IDs espec\xEDficos", value: "specific" }
+    ]
+  });
+  let ids;
+  if (filterMode === "specific") {
+    const idsInput = await textInput({
+      message: "C\xF3digos de snippets separados por coma (contentTemplateCode original)",
+      placeholder: "snippet-1, snippet-2",
+      required: true
+    });
+    ids = idsInput.split(",").map((id) => id.trim()).filter(Boolean);
+  }
+  const dryRun = await confirm({
+    message: "\xBFEjecutar primero en modo prueba? (muestra qu\xE9 productos se actualizar\xEDan)",
+    defaultValue: true
+  });
+  console.log("\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  console.log(`  Cuenta:       ${domain}`);
+  console.log(`  Snippets:     ${ids ? ids.join(", ") : "Todos"}`);
+  console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
+  console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
+  const proceed = await confirm({ message: "\xBFContinuar?", defaultValue: true });
+  if (!proceed) {
+    console.log("\n  Cancelado.\n");
+    process.exit(0);
+  }
+  return {
+    domain,
+    templateId: "",
+    templateType: "snippet",
+    verbose: true,
+    dryRun,
+    saveJson: false,
+    updateProductsOnly: true,
+    ids
+  };
+}
 async function pickDomain(domains, label) {
   if (domains.length > 0) {
     const choices = [
@@ -10194,16 +10321,227 @@ async function pickDomain(domains, label) {
   return textInput({ message: label, placeholder: "ej: redrenault", required: true });
 }
 
+// src/pipeline/snippetReplacer.ts
+async function replaceSnippetInProducts(oldSnippetId, newSnippetId, config, dryRun = false) {
+  if (oldSnippetId === newSnippetId && !dryRun) {
+    return {
+      oldSnippetId,
+      newSnippetId,
+      productsUpdated: 0,
+      productIds: [],
+      failedProducts: [],
+      skipped: true
+    };
+  }
+  const products = await findProductsBySnippet(oldSnippetId, config);
+  if (products.length === 0) {
+    return {
+      oldSnippetId,
+      newSnippetId,
+      productsUpdated: 0,
+      productIds: [],
+      failedProducts: [],
+      skipped: true
+    };
+  }
+  if (dryRun) {
+    return {
+      oldSnippetId,
+      newSnippetId,
+      productsUpdated: products.length,
+      productIds: products.map((p) => p._id),
+      failedProducts: [],
+      skipped: false
+    };
+  }
+  const updatedIds = [];
+  const failedProducts = [];
+  for (const product of products) {
+    try {
+      const newSnippets = product.snippets.map((id) => id === oldSnippetId ? newSnippetId : id);
+      await updateProductSnippets(product._id, newSnippets, config);
+      updatedIds.push(product._id);
+      await new Promise((resolve4) => setTimeout(resolve4, 250));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      failedProducts.push({ productId: product._id, error: errorMsg });
+    }
+  }
+  return {
+    oldSnippetId,
+    newSnippetId,
+    productsUpdated: updatedIds.length,
+    productIds: updatedIds,
+    failedProducts,
+    skipped: false
+  };
+}
+async function runSnippetReplacementPhase(snippetIdMap, config, dryRun = false, verbose = false) {
+  if (snippetIdMap.size === 0) return [];
+  const prefix = dryRun ? "\u{1F50D} [DRY RUN]" : "\u{1F517}";
+  console.log(`
+${prefix} Snippet \u2192 Product replacement phase (${snippetIdMap.size} snippets)...`);
+  const results = [];
+  for (const [oldId, newId] of snippetIdMap) {
+    try {
+      const result = await replaceSnippetInProducts(oldId, newId, config, dryRun);
+      results.push(result);
+      if (result.skipped) {
+        if (verbose) {
+          console.log(`   \u23ED\uFE0F  ${oldId} \u2192 ${newId}: no products found`);
+        }
+      } else {
+        const verb = dryRun ? "would update" : "updated";
+        console.log(`   \u2705 ${oldId} \u2192 ${newId}: ${verb} ${result.productsUpdated} products`);
+        if (result.failedProducts.length > 0) {
+          console.log(`      \u26A0\uFE0F  ${result.failedProducts.length} products failed`);
+          if (verbose) {
+            for (const f of result.failedProducts) {
+              console.log(`         - ${f.productId}: ${f.error}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`   \u274C ${oldId} \u2192 ${newId}: failed \u2014 ${errorMsg}`);
+      results.push({
+        oldSnippetId: oldId,
+        newSnippetId: newId,
+        productsUpdated: 0,
+        productIds: [],
+        failedProducts: [],
+        skipped: false
+      });
+    }
+  }
+  const totalUpdated = results.reduce((sum, r) => sum + r.productsUpdated, 0);
+  const totalFailed = results.reduce((sum, r) => sum + r.failedProducts.length, 0);
+  const totalSkipped = results.filter((r) => r.skipped).length;
+  console.log(`
+   \u{1F4CA} Snippet replacement summary:`);
+  console.log(`      Products ${dryRun ? "to update" : "updated"}: ${totalUpdated}`);
+  if (totalFailed > 0) {
+    console.log(`      Products failed: ${totalFailed}`);
+  }
+  if (totalSkipped > 0) {
+    console.log(`      Snippets with no products: ${totalSkipped}`);
+  }
+  return results;
+}
+
+// src/commands/updateProducts.ts
+function buildSnippetIdMap(snippets, filterIds) {
+  const codeMap = buildTemplateCodeMap(snippets);
+  const idMap = /* @__PURE__ */ new Map();
+  for (const snippet of snippets) {
+    const code = snippet.contentTemplateCode;
+    if (!code) continue;
+    if (code.endsWith("-migrated")) continue;
+    if (filterIds && !filterIds.has(code)) continue;
+    const migratedCode = `${code}-migrated`;
+    const migratedId = codeMap.get(migratedCode);
+    if (migratedId) {
+      idMap.set(snippet._id, migratedId);
+    }
+  }
+  return idMap;
+}
+async function handleUpdateProducts(opts) {
+  const { domain, dryRun, verbose, ids } = opts;
+  console.log(`
+\u{1F4E6} update-products: loading config for domain "${domain}"...`);
+  const envConfig = await loadDomainEnv(domain);
+  const apiUrl = envConfig.PROLIBU_API_URL;
+  const authToken = envConfig.PROLIBU_AUTH_TOKEN;
+  if (!apiUrl || !authToken) {
+    console.error(
+      `\u274C Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`
+    );
+    process.exit(1);
+  }
+  const config = {
+    baseUrl: apiUrl,
+    authToken: authToken.startsWith("Bearer ") ? authToken : `Bearer ${authToken}`
+  };
+  console.log(`\u{1F4E1} Fetching snippet templates from ${domain}...`);
+  const snippets = await fetchExistingTemplates(config, "snippet");
+  console.log(`   Found ${snippets.length} snippet templates`);
+  if (snippets.length === 0) {
+    console.log("   \u26A0\uFE0F  No snippet templates found \u2014 nothing to do.");
+    return;
+  }
+  const filterIds = ids ? new Set(ids.split(",").map((s) => s.trim()).filter(Boolean)) : void 0;
+  if (filterIds) {
+    console.log(`   \u{1F50D} Filtering to ${filterIds.size} specified code(s): ${[...filterIds].join(", ")}`);
+  }
+  const snippetIdMap = buildSnippetIdMap(snippets, filterIds);
+  if (snippetIdMap.size === 0) {
+    console.log("   \u26A0\uFE0F  No snippet pairs found (no [code] \u2192 [code]-migrated matches).");
+    if (verbose) {
+      const codes = snippets.filter((s) => s.contentTemplateCode && !s.contentTemplateCode.endsWith("-migrated")).map((s) => s.contentTemplateCode);
+      console.log(`   Original snippet codes: ${codes.join(", ") || "(none)"}`);
+      const migratedCodes = snippets.filter((s) => s.contentTemplateCode?.endsWith("-migrated")).map((s) => s.contentTemplateCode);
+      console.log(`   Migrated snippet codes: ${migratedCodes.join(", ") || "(none)"}`);
+    }
+    return;
+  }
+  console.log(`
+\u{1F5FA}\uFE0F  Snippet ID map (${snippetIdMap.size} pair${snippetIdMap.size > 1 ? "s" : ""}):`);
+  for (const [oldId, newId] of snippetIdMap) {
+    const oldSnippet = snippets.find((s) => s._id === oldId);
+    const newSnippet = snippets.find((s) => s._id === newId);
+    const oldLabel = oldSnippet?.contentTemplateCode ?? oldId;
+    const newLabel = newSnippet?.contentTemplateCode ?? newId;
+    console.log(`   ${oldLabel} (${oldId}) \u2192 ${newLabel} (${newId})`);
+  }
+  const results = await runSnippetReplacementPhase(snippetIdMap, config, dryRun, verbose);
+  const totalUpdated = results.reduce((sum, r) => sum + r.productsUpdated, 0);
+  if (dryRun) {
+    if (totalUpdated > 0) {
+      console.log(`
+\u{1F4A1} Run without --dry-run to apply these changes.`);
+    } else {
+      console.log(`
+\u2705 No products need updating.`);
+    }
+  } else {
+    console.log(`
+\u2705 Done. ${totalUpdated} product(s) updated.`);
+  }
+}
+
 // src/index.ts
 var program2 = new Command();
 program2.name("layout-migrator").description("Migrate Prolibu v1 content templates to Design Studio v2 format").version("0.1.0");
 program2.command("migrate").description("Migrate a content template by ID and upload it as a new template (same account)").option("--id <code>", "contentTemplateCode of the template", "main-layout").option("--domain <domain>", "Load config from .<domain>.env file (e.g. --domain redrenault)").option("--api-url <url>", "Prolibu API base URL (overrides env file)").option("--token <token>", "Auth token (overrides env file)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally (optional path, default: ./output/)").option("--json-only", "Only save JSON locally, do NOT upload to Prolibu", false).option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleMigrate);
 program2.command("transfer").description("Migrate a template from one Prolibu account to another").option("--id <code>", "contentTemplateCode from the source account", "main-layout").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--name <name>", 'Name for the new template (default: original name + " [migrated]")').option("--type <type>", "Template type: layout | content | snippet", "layout").option("--save-json [path]", "Also save JSON locally").option("--dry-run", "Validate only \u2014 no upload, no file write", false).option("--no-sync-fonts", "Disable automatic font synchronization (enabled by default)").option("--verbose", "Show warnings and stats", false).action(handleTransfer);
-program2.command("migrate-all").description("Migrate ALL templates from one Prolibu account to another (batch with upsert)").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--type <type>", "Filter by template type: layout | content | snippet | all", "all").option("--concurrency <n>", "Number of parallel migrations (default: 5)", "5").option("--dry-run", "List what would be migrated, no actual changes", false).option("--hide-old", "Hide (disable) old templates in source after migration", false).option("--verbose", "Show detailed progress and warnings", false).option("--ids <codes>", "Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)").option("--keep-original-name", "Keep original template name and code (no -migrated suffix)", false).action(handleMigrateAll);
+program2.command("migrate-all").description("Migrate ALL templates from one Prolibu account to another (batch with upsert)").requiredOption("--from <domain>", "Source domain (reads from .<domain>.env)").requiredOption("--to <domain>", "Destination domain (reads from .<domain>.env)").option("--type <type>", "Filter by template type: layout | content | snippet | all", "all").option("--concurrency <n>", "Number of parallel migrations (default: 5)", "5").option("--dry-run", "List what would be migrated, no actual changes", false).option("--hide-old", "Hide (disable) old templates in source after migration", false).option("--verbose", "Show detailed progress and warnings", false).option(
+  "--ids <codes>",
+  "Comma-separated template codes/IDs to migrate (or use MIGRATION_IDS in .env)"
+).option(
+  "--keep-original-name",
+  "Keep original template name and code (no -migrated suffix)",
+  false
+).option(
+  "--update-products",
+  "Update products that reference migrated snippets with new snippet IDs",
+  false
+).action(handleMigrateAll);
+program2.command("update-products").description("Update products that reference old snippet IDs with their migrated counterparts").requiredOption("--domain <domain>", "Account domain (reads from .<domain>.env)").option("--dry-run", "Preview changes without applying them", false).option("--verbose", "Show detailed progress", false).option("--ids <codes>", "Comma-separated snippet codes to process (default: all)").action(handleUpdateProducts);
 program2.command("run").description("Interactive migration \u2014 prompts for domain, template ID, and options").action(runInteractiveFlow);
 program2.action(runInteractiveFlow);
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
+  if (answers.updateProductsOnly) {
+    await handleUpdateProducts({
+      domain: answers.domain,
+      dryRun: answers.dryRun,
+      verbose: answers.verbose,
+      ids: answers.ids?.join(",")
+    });
+    return;
+  }
   if (answers.migrateAll && answers.toDomain) {
     await handleMigrateAll({
       from: answers.domain,
@@ -10214,7 +10552,8 @@ async function runInteractiveFlow() {
       verbose: answers.verbose,
       hideOld: answers.hideOldTemplates ?? false,
       ids: answers.ids,
-      keepOriginalName: answers.keepOriginalName
+      keepOriginalName: answers.keepOriginalName,
+      updateProducts: answers.updateProducts ?? false
     });
     return;
   }
@@ -10478,9 +10817,14 @@ async function handleMigrateAll(opts) {
   if (opts.hideOld) {
     console.log(`   Hide old:    Yes (will hide source templates after migration)`);
   }
+  if (opts.updateProducts) {
+    console.log(`   Update products: Yes (will replace old snippet IDs in products)`);
+  }
   if (opts.keepOriginalName && opts.from === opts.to) {
-    console.log(`
-   \u26A0\uFE0F  WARNING: Same account + keep-original-name will OVERWRITE original templates!`);
+    console.log(
+      `
+   \u26A0\uFE0F  WARNING: Same account + keep-original-name will OVERWRITE original templates!`
+    );
   }
   console.log(`
 \u{1F4E5} Fetching templates from source (${opts.from})...`);
@@ -10523,9 +10867,7 @@ async function handleMigrateAll(opts) {
       if (exists) toUpdate++;
       else toCreate++;
       if (opts.verbose) {
-        console.log(
-          `   [${action}] ${t.contentTemplateName} \u2192 ${targetCode} (${t.templateType})`
-        );
+        console.log(`   [${action}] ${t.contentTemplateName} \u2192 ${targetCode} (${t.templateType})`);
       }
     }
     console.log(`
@@ -10533,6 +10875,20 @@ async function handleMigrateAll(opts) {
     console.log(`   Would CREATE: ${toCreate}`);
     console.log(`   Would UPDATE: ${toUpdate}`);
     console.log(`   Total: ${templatesToMigrate.length}`);
+    const snippetTemplates = templatesToMigrate.filter((t) => t.templateType === "snippet");
+    if (snippetTemplates.length > 0) {
+      if (!opts.updateProducts) {
+        console.log(
+          `
+   \u2139\uFE0F  Found ${snippetTemplates.length} snippet templates. Use --update-products to replace snippet IDs in products.`
+        );
+      }
+      const dryRunMap = /* @__PURE__ */ new Map();
+      for (const t of snippetTemplates) {
+        dryRunMap.set(t._id, t._id);
+      }
+      await runSnippetReplacementPhase(dryRunMap, destConfig, true, opts.verbose);
+    }
     return;
   }
   console.log(`
@@ -10545,6 +10901,7 @@ async function handleMigrateAll(opts) {
     /** IDs of source templates that were successfully migrated (for hiding) */
     migratedSourceIds: []
   };
+  const snippetIdMap = /* @__PURE__ */ new Map();
   const queue = [...templatesToMigrate];
   let completed = 0;
   const total = queue.length;
@@ -10577,6 +10934,9 @@ async function handleMigrateAll(opts) {
         destMap.set(targetCode, upsertResult._id);
       } else {
         results.updated++;
+      }
+      if (template.templateType === "snippet") {
+        snippetIdMap.set(template._id, upsertResult._id);
       }
       results.migratedSourceIds.push(template._id);
       completed++;
@@ -10617,6 +10977,17 @@ async function handleMigrateAll(opts) {
     for (const e of results.errors) {
       console.log(`   - ${e.name}: ${e.error}`);
     }
+  }
+  if (opts.updateProducts && snippetIdMap.size > 0) {
+    if (opts.from !== opts.to) {
+      console.log(
+        `
+\u26A0\uFE0F  Warning: --update-products with cross-account migration (${opts.from} \u2192 ${opts.to}).`
+      );
+      console.log(`   Products in destination may not reference source snippet IDs.`);
+      console.log(`   This is typically useful only for same-account migrations.`);
+    }
+    await runSnippetReplacementPhase(snippetIdMap, destConfig, false, opts.verbose);
   }
   if (opts.hideOld && results.migratedSourceIds.length > 0) {
     console.log(`
