@@ -640,3 +640,131 @@ export async function updateProductSnippets(
     `updating snippets for product ${productId}`
   );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// DEAL LAYOUT FIX (fix-deal-layout command)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Build a Map<html, _id> from all layout content templates.
+ * Used to match a deal's layoutHtml to its layout template _id.
+ */
+export async function buildLayoutHtmlMap(
+  config: ProlibuClientConfig
+): Promise<Map<string, string>> {
+  const layoutMap = new Map<string, string>();
+  let page = 1;
+  const limit = 200;
+
+  while (true) {
+    const url = new URL('/v2/contenttemplate/', config.baseUrl);
+    url.searchParams.set(
+      'xquery',
+      JSON.stringify({ templateType: 'layout' })
+    );
+    url.searchParams.set('select', '_id html');
+    url.searchParams.set('limit', String(limit));
+    url.searchParams.set('page', String(page));
+
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: config.authToken,
+          'Content-Type': 'application/json',
+        },
+      },
+      `fetching layout templates page ${page}`
+    );
+
+    const json = await safeParseJson(response, `layout templates page ${page}`);
+    const data = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || [];
+
+    if (data.length === 0) break;
+
+    for (const item of data) {
+      const t = item as { _id?: string; html?: string };
+      if (t._id && t.html) {
+        layoutMap.set(t.html, t._id);
+      }
+    }
+
+    if (data.length < limit) break;
+    page++;
+  }
+
+  return layoutMap;
+}
+
+export interface DealWithMissingLayout {
+  _id: string;
+  proposal?: {
+    template?: {
+      layoutHtml?: string;
+    };
+  };
+}
+
+/**
+ * Fetch deals that have layoutHtml but are missing the layout _id reference.
+ * Returns one page of results at a time.
+ */
+export async function fetchDealsWithMissingLayout(
+  config: ProlibuClientConfig,
+  page = 1,
+  limit = 100
+): Promise<DealWithMissingLayout[]> {
+  const url = new URL('/v2/deal', config.baseUrl);
+  url.searchParams.set(
+    'xquery',
+    JSON.stringify({
+      'proposal.template.layout': null,
+      'proposal.template.layoutHtml': { $exists: true, $ne: null },
+    })
+  );
+  url.searchParams.set('select', '_id proposal');
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('page', String(page));
+
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      method: 'GET',
+      headers: {
+        Authorization: config.authToken,
+        'Content-Type': 'application/json',
+      },
+    },
+    `fetching deals with missing layout (page ${page})`
+  );
+
+  const json = await safeParseJson(response, `deals page ${page}`);
+  const data = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || [];
+
+  return data as DealWithMissingLayout[];
+}
+
+/**
+ * Patch a deal to set the proposal.template.layout field.
+ */
+export async function patchDealLayout(
+  dealId: string,
+  layoutId: string,
+  config: ProlibuClientConfig
+): Promise<void> {
+  const url = `${config.baseUrl}/v2/deal/${encodeURIComponent(dealId)}`;
+
+  await fetchWithRetry(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: config.authToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 'proposal.template.layout': layoutId }),
+    },
+    `patching deal ${dealId} with layout ${layoutId}`
+  );
+}

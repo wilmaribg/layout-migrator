@@ -8422,6 +8422,86 @@ async function updateProductSnippets(productId, snippets, config) {
     `updating snippets for product ${productId}`
   );
 }
+async function buildLayoutHtmlMap(config) {
+  const layoutMap = /* @__PURE__ */ new Map();
+  let page = 1;
+  const limit = 200;
+  while (true) {
+    const url = new URL("/v2/contenttemplate/", config.baseUrl);
+    url.searchParams.set(
+      "xquery",
+      JSON.stringify({ templateType: "layout" })
+    );
+    url.searchParams.set("select", "_id html");
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("page", String(page));
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: "GET",
+        headers: {
+          Authorization: config.authToken,
+          "Content-Type": "application/json"
+        }
+      },
+      `fetching layout templates page ${page}`
+    );
+    const json = await safeParseJson(response, `layout templates page ${page}`);
+    const data = Array.isArray(json) ? json : json.data || [];
+    if (data.length === 0) break;
+    for (const item of data) {
+      const t = item;
+      if (t._id && t.html) {
+        layoutMap.set(t.html, t._id);
+      }
+    }
+    if (data.length < limit) break;
+    page++;
+  }
+  return layoutMap;
+}
+async function fetchDealsWithMissingLayout(config, page = 1, limit = 100) {
+  const url = new URL("/v2/deal", config.baseUrl);
+  url.searchParams.set(
+    "xquery",
+    JSON.stringify({
+      "proposal.template.layout": null,
+      "proposal.template.layoutHtml": { $exists: true, $ne: null }
+    })
+  );
+  url.searchParams.set("select", "_id proposal");
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("page", String(page));
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      method: "GET",
+      headers: {
+        Authorization: config.authToken,
+        "Content-Type": "application/json"
+      }
+    },
+    `fetching deals with missing layout (page ${page})`
+  );
+  const json = await safeParseJson(response, `deals page ${page}`);
+  const data = Array.isArray(json) ? json : json.data || [];
+  return data;
+}
+async function patchDealLayout(dealId, layoutId, config) {
+  const url = `${config.baseUrl}/v2/deal/${encodeURIComponent(dealId)}`;
+  await fetchWithRetry(
+    url,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: config.authToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ "proposal.template.layout": layoutId })
+    },
+    `patching deal ${dealId} with layout ${layoutId}`
+  );
+}
 
 // src/assets/fontResolver.ts
 function resolveFonts(layout) {
@@ -10091,16 +10171,24 @@ async function runInteractivePrompt() {
       {
         label: "Actualizar productos (reemplazar snippet IDs ya migrados)",
         value: "update-products"
+      },
+      {
+        label: "Corregir layout en deals (fix-deal-layout)",
+        value: "fix-deal-layout"
       }
     ]
   });
   const isTransfer = mode === "transfer";
   const isMigrateAll = mode === "migrate-all";
   const isUpdateProducts = mode === "update-products";
+  const isFixDealLayout = mode === "fix-deal-layout";
   const projectRoot = (0, import_node_path2.resolve)(import_meta2.dirname ?? process.cwd(), "..", "..");
   const domains = listAvailableDomains(projectRoot);
   const sourceLabel = isTransfer || isMigrateAll ? "Dominio origen" : "Dominio";
   const domain = await pickDomain(domains, sourceLabel);
+  if (isFixDealLayout) {
+    return await runFixDealLayoutPrompt(domain);
+  }
   if (isUpdateProducts) {
     return await runUpdateProductsPrompt(domain);
   }
@@ -10256,6 +10344,30 @@ async function runInteractivePrompt() {
     verbose: true,
     dryRun: false,
     saveJson: false
+  };
+}
+async function runFixDealLayoutPrompt(domain) {
+  const dryRun = await confirm({
+    message: "\xBFEjecutar primero en modo prueba? (muestra qu\xE9 deals se corregir\xEDan sin hacer cambios)",
+    defaultValue: true
+  });
+  console.log("\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  console.log(`  Cuenta:       ${domain}`);
+  console.log(`  Modo prueba:  ${dryRun ? "S\xED" : "No"}`);
+  console.log("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n");
+  const proceed = await confirm({ message: "\xBFContinuar?", defaultValue: true });
+  if (!proceed) {
+    console.log("\n  Cancelado.\n");
+    process.exit(0);
+  }
+  return {
+    domain,
+    templateId: "",
+    templateType: "layout",
+    verbose: true,
+    dryRun,
+    saveJson: false,
+    fixDealLayoutOnly: true
   };
 }
 async function runUpdateProductsPrompt(domain) {
@@ -10455,9 +10567,7 @@ async function handleUpdateProducts(opts) {
   const apiUrl = envConfig.PROLIBU_API_URL;
   const authToken = envConfig.PROLIBU_AUTH_TOKEN;
   if (!apiUrl || !authToken) {
-    console.error(
-      `\u274C Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`
-    );
+    console.error(`\u274C Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`);
     process.exit(1);
   }
   const config = {
@@ -10471,9 +10581,13 @@ async function handleUpdateProducts(opts) {
     console.log("   \u26A0\uFE0F  No snippet templates found \u2014 nothing to do.");
     return;
   }
-  const filterIds = ids ? new Set(ids.split(",").map((s) => s.trim()).filter(Boolean)) : void 0;
+  const filterIds = ids ? new Set(
+    ids.split(",").map((s) => s.trim()).filter(Boolean)
+  ) : void 0;
   if (filterIds) {
-    console.log(`   \u{1F50D} Filtering to ${filterIds.size} specified code(s): ${[...filterIds].join(", ")}`);
+    console.log(
+      `   \u{1F50D} Filtering to ${filterIds.size} specified code(s): ${[...filterIds].join(", ")}`
+    );
   }
   const snippetIdMap = buildSnippetIdMap(snippets, filterIds);
   if (snippetIdMap.size === 0) {
@@ -10486,8 +10600,10 @@ async function handleUpdateProducts(opts) {
     }
     return;
   }
-  console.log(`
-\u{1F5FA}\uFE0F  Snippet ID map (${snippetIdMap.size} pair${snippetIdMap.size > 1 ? "s" : ""}):`);
+  console.log(
+    `
+\u{1F5FA}\uFE0F  Snippet ID map (${snippetIdMap.size} pair${snippetIdMap.size > 1 ? "s" : ""}):`
+  );
   for (const [oldId, newId] of snippetIdMap) {
     const oldSnippet = snippets.find((s) => s._id === oldId);
     const newSnippet = snippets.find((s) => s._id === newId);
@@ -10511,6 +10627,72 @@ async function handleUpdateProducts(opts) {
   }
 }
 
+// src/commands/fixDealLayout.ts
+async function handleFixDealLayout(opts) {
+  const { domain, dryRun, verbose } = opts;
+  console.log(`
+\u{1F527} fix-deal-layout: loading config for domain "${domain}"...`);
+  const envConfig = await loadDomainEnv(domain);
+  const apiUrl = envConfig.PROLIBU_API_URL;
+  const authToken = envConfig.PROLIBU_AUTH_TOKEN;
+  if (!apiUrl || !authToken) {
+    console.error(`\u274C Missing PROLIBU_API_URL or PROLIBU_AUTH_TOKEN in .${domain}.env`);
+    process.exit(1);
+  }
+  const config = {
+    baseUrl: apiUrl,
+    authToken: authToken.startsWith("Bearer ") ? authToken : `Bearer ${authToken}`
+  };
+  console.log(`\u{1F4E5} Cargando layout templates...`);
+  const layoutMap = await buildLayoutHtmlMap(config);
+  console.log(`   Encontrados ${layoutMap.size} layouts con HTML`);
+  if (layoutMap.size === 0) {
+    console.log("   \u26A0\uFE0F  No se encontraron layout templates con HTML \u2014 nada que hacer.");
+    return;
+  }
+  console.log(`\u{1F4E5} Buscando deals con layout faltante...`);
+  let totalProcessed = 0;
+  let totalUpdated = 0;
+  let totalNoMatch = 0;
+  let page = 1;
+  while (true) {
+    const deals = await fetchDealsWithMissingLayout(config, page);
+    if (deals.length === 0) break;
+    for (const deal of deals) {
+      totalProcessed++;
+      const layoutHtml = deal.proposal?.template?.layoutHtml;
+      if (!layoutHtml) continue;
+      const layoutId = layoutMap.get(layoutHtml);
+      if (!layoutId) {
+        totalNoMatch++;
+        if (verbose) {
+          console.log(`   \u26A0\uFE0F  Deal ${deal._id} \u2192 sin match (layoutHtml no coincide)`);
+        }
+        continue;
+      }
+      if (dryRun) {
+        console.log(`   \u2705 Deal ${deal._id} \u2192 layout ${layoutId} (dry-run)`);
+      } else {
+        await patchDealLayout(deal._id, layoutId, config);
+        console.log(`   \u2705 Deal ${deal._id} \u2192 layout ${layoutId}`);
+      }
+      totalUpdated++;
+    }
+    page++;
+  }
+  console.log(
+    `
+\u{1F4CA} Procesados: ${totalProcessed} | Actualizados: ${totalUpdated} | Sin match: ${totalNoMatch}`
+  );
+  if (dryRun && totalUpdated > 0) {
+    console.log(`
+\u{1F4A1} Ejecuta sin --dry-run para aplicar los cambios.`);
+  } else if (!dryRun) {
+    console.log(`
+\u2705 Listo. ${totalUpdated} deal(s) actualizados.`);
+  }
+}
+
 // src/index.ts
 var program2 = new Command();
 program2.name("layout-migrator").description("Migrate Prolibu v1 content templates to Design Studio v2 format").version("0.1.0");
@@ -10529,10 +10711,19 @@ program2.command("migrate-all").description("Migrate ALL templates from one Prol
   false
 ).action(handleMigrateAll);
 program2.command("update-products").description("Update products that reference old snippet IDs with their migrated counterparts").requiredOption("--domain <domain>", "Account domain (reads from .<domain>.env)").option("--dry-run", "Preview changes without applying them", false).option("--verbose", "Show detailed progress", false).option("--ids <codes>", "Comma-separated snippet codes to process (default: all)").action(handleUpdateProducts);
+program2.command("fix-deal-layout").description("Fix deals with missing proposal.template.layout by matching layoutHtml").requiredOption("--domain <domain>", "Account domain (reads from .<domain>.env)").option("--dry-run", "Preview changes without applying them", false).option("--verbose", "Show detailed progress", false).action(handleFixDealLayout);
 program2.command("run").description("Interactive migration \u2014 prompts for domain, template ID, and options").action(runInteractiveFlow);
 program2.action(runInteractiveFlow);
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
+  if (answers.fixDealLayoutOnly) {
+    await handleFixDealLayout({
+      domain: answers.domain,
+      dryRun: answers.dryRun,
+      verbose: answers.verbose
+    });
+    return;
+  }
   if (answers.updateProductsOnly) {
     await handleUpdateProducts({
       domain: answers.domain,

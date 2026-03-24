@@ -25,6 +25,7 @@ import { loadDomainEnv } from './config/envLoader.js';
 import { runInteractivePrompt } from './cli/interactive.js';
 import { runSnippetReplacementPhase } from './pipeline/snippetReplacer.js';
 import { handleUpdateProducts } from './commands/updateProducts.js';
+import { handleFixDealLayout } from './commands/fixDealLayout.js';
 
 const program = new Command();
 
@@ -101,6 +102,15 @@ program
   .option('--ids <codes>', 'Comma-separated snippet codes to process (default: all)')
   .action(handleUpdateProducts);
 
+// ── Fix deal layout (restore missing layout references) ──
+program
+  .command('fix-deal-layout')
+  .description('Fix deals with missing proposal.template.layout by matching layoutHtml')
+  .requiredOption('--domain <domain>', 'Account domain (reads from .<domain>.env)')
+  .option('--dry-run', 'Preview changes without applying them', false)
+  .option('--verbose', 'Show detailed progress', false)
+  .action(handleFixDealLayout);
+
 // ── Interactive command (no flags needed) ──────────────────
 program
   .command('run')
@@ -112,6 +122,16 @@ program.action(runInteractiveFlow);
 
 async function runInteractiveFlow() {
   const answers = await runInteractivePrompt();
+
+  // Fix-deal-layout standalone mode
+  if (answers.fixDealLayoutOnly) {
+    await handleFixDealLayout({
+      domain: answers.domain,
+      dryRun: answers.dryRun,
+      verbose: answers.verbose,
+    });
+    return;
+  }
 
   // Update-products standalone mode
   if (answers.updateProductsOnly) {

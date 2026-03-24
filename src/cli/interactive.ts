@@ -32,6 +32,8 @@ export interface InteractiveAnswers {
   updateProducts?: boolean;
   /** Standalone update-products mode (no migration) */
   updateProductsOnly?: boolean;
+  /** Standalone fix-deal-layout mode */
+  fixDealLayoutOnly?: boolean;
 }
 
 /**
@@ -54,11 +56,16 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
         label: 'Actualizar productos (reemplazar snippet IDs ya migrados)',
         value: 'update-products' as const,
       },
+      {
+        label: 'Corregir layout en deals (fix-deal-layout)',
+        value: 'fix-deal-layout' as const,
+      },
     ],
   });
   const isTransfer = mode === 'transfer';
   const isMigrateAll = mode === 'migrate-all';
   const isUpdateProducts = mode === 'update-products';
+  const isFixDealLayout = mode === 'fix-deal-layout';
 
   // ── 1. Source domain selection ─────────────────────────────
   const projectRoot = resolve(import.meta.dirname ?? process.cwd(), '..', '..');
@@ -66,6 +73,11 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
 
   const sourceLabel = isTransfer || isMigrateAll ? 'Dominio origen' : 'Dominio';
   const domain = await pickDomain(domains, sourceLabel);
+
+  // ── fix-deal-layout: standalone flow ───────────────────────
+  if (isFixDealLayout) {
+    return await runFixDealLayoutPrompt(domain);
+  }
 
   // ── update-products: standalone flow ───────────────────────
   if (isUpdateProducts) {
@@ -268,6 +280,39 @@ export async function runInteractivePrompt(): Promise<InteractiveAnswers> {
     verbose: true,
     dryRun: false,
     saveJson: false,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FIX-DEAL-LAYOUT INTERACTIVE FLOW
+// ═══════════════════════════════════════════════════════════════
+
+async function runFixDealLayoutPrompt(domain: string): Promise<InteractiveAnswers> {
+  const dryRun = await confirm({
+    message: '¿Ejecutar primero en modo prueba? (muestra qué deals se corregirían sin hacer cambios)',
+    defaultValue: true,
+  });
+
+  // Summary
+  console.log('\n  ─────────────────────────────');
+  console.log(`  Cuenta:       ${domain}`);
+  console.log(`  Modo prueba:  ${dryRun ? 'Sí' : 'No'}`);
+  console.log('  ─────────────────────────────\n');
+
+  const proceed = await confirm({ message: '¿Continuar?', defaultValue: true });
+  if (!proceed) {
+    console.log('\n  Cancelado.\n');
+    process.exit(0);
+  }
+
+  return {
+    domain,
+    templateId: '',
+    templateType: 'layout',
+    verbose: true,
+    dryRun,
+    saveJson: false,
+    fixDealLayoutOnly: true,
   };
 }
 
