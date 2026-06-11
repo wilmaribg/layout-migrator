@@ -3668,7 +3668,7 @@ var contentPresets = {
     children: [
       {
         type: "COMPONENT",
-        // pluginId: 'com-satisfaction-body',
+        pluginId: "com-satisfaction-body",
         componentName: "Satisfaction Body",
         props: {},
         x: 146,
@@ -3678,7 +3678,7 @@ var contentPresets = {
       },
       {
         type: "COMPONENT",
-        // pluginId: 'com-rate',
+        pluginId: "com-rate",
         componentName: "Rating",
         props: {
           aparience: { label: "Rating Stars", value: "Rating Stars" },
@@ -3885,8 +3885,8 @@ var contentPresets = {
       },
       {
         type: "COMPONENT",
-        pluginId: "com-agreement-signature",
-        componentName: "Agreement Signature",
+        pluginId: "com-contract-signing-setup",
+        componentName: "Contract Signing Setup",
         props: {},
         x: 94,
         y: 384,
@@ -3895,8 +3895,8 @@ var contentPresets = {
       }
     ]
   },
-  "custom-content": {
-    name: "Custom Content",
+  "content-template-placeholder": {
+    name: "Content Template",
     width: 792,
     height: 80,
     orientation: "landscape",
@@ -3904,12 +3904,17 @@ var contentPresets = {
     pageType: "marker",
     children: [
       {
-        type: "TEXT",
-        characters: "{{{customContent}}}",
-        fontSize: 18,
-        fontWeight: 400,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "customContent.title",
+          fontSize: 18,
+          fontWeight: 400,
+          textAlign: "center",
+          color: "#FFFFFF",
+          lineHeight: 1.3
+        },
         x: 0,
         y: 0,
         width: 792,
@@ -3950,7 +3955,8 @@ var contentPresets = {
           title: "Proposal Approval.",
           descriptionText: null,
           descriptionApproved: null,
-          descriptionDenied: null
+          descriptionDenied: null,
+          hideDenyButton: false
         },
         x: 40,
         y: 100,
@@ -3968,12 +3974,17 @@ var contentPresets = {
     pageType: "marker",
     children: [
       {
-        type: "TEXT",
-        characters: "{{{productSnippets}}}",
-        fontSize: 18,
-        fontWeight: 400,
-        textAlign: "left",
-        fills: [{ type: "solid", color: { r: 255, g: 255, b: 255, a: 1 }, opacity: 1 }],
+        type: "COMPONENT",
+        pluginId: "com-preset-text",
+        componentName: "Preset Text",
+        props: {
+          i18nKey: "snippets.title",
+          fontSize: 18,
+          fontWeight: 400,
+          textAlign: "center",
+          color: "#FFFFFF",
+          lineHeight: 1.3
+        },
         x: 0,
         y: 0,
         width: 792,
